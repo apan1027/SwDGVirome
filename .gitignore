@@ -1,10 +1,43 @@
-.Rhistory
-.RData
-.Rproj.user/
-data/
-*.rds
-*.sqlite
+# 排除HTML输出
 *.html
+
+# data文件夹策略：
+# - 保留 00-raw/d00-resource（原始数据）
+# - 排除其他所有生成的数据文件夹
+
+# 排除所有data子文件夹
+/analyses/data/*
+
+# 但保留原始数据文件夹（重要！）
+!/analyses/data/00-raw/
+!/analyses/data/.gitkeep
+
+# 排除analyses/output/
+/analyses/output/*
+!/analyses/output/.gitkeep
+
+# 排除图片（但不排除00-raw里的）
 *.pdf
 *.png
+
+# 排除R环境
+/renv/
+renv.lock
+.Rproj.user/
+.Rhistory
+.RData
+
+# 排除R包文件
+/man/
+/NAMESPACE/
+/R/
+
+# 排除日志
+*.log
+
+# 排除quarto
+/.quarto/
+
+# 排除Mac
 .DS_Store
+
