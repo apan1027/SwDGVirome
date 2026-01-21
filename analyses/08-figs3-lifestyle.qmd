@@ -1,0 +1,429 @@
+---
+title: "08-figs3-lifestyle"
+title-block-banner: true
+author:
+  - name: Jinlong Ru
+    orcid: 0000-0002-6757-6018
+date: 2025-12-20
+toc: true
+toc-depth: 4
+number-sections: true
+code-fold: true
+code-line-numbers: true
+code-tools: true
+format: 
+  html:
+    embed-resources: true
+    smooth-scroll: true
+    page-layout: full
+reference-location: section
+citation-location: document
+params:
+  name: "08-figs3-lifestyle"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+The purpose of this document is ...
+
+```{r}
+#| label: params
+#| eval: !expr interactive()
+#| include: false
+params = list(name = "08-figs3-lifestyle")
+```
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "39f411c8-c55b-4f73-8ec8-7f66ce6fa51a")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+#| label: packages
+#| message: false
+suppressPackageStartupMessages({
+  library(here)
+  library(mia)
+  library(tidyverse)
+  library(scales)
+  library(patchwork)
+})
+```
+
+## Tasks
+
+This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
+
+Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
+
+Below is an example structure to get you started:
+
+### Task 1: Load TSE and prepare lifestyle data
+
+```{r}
+#| label: task1-load-data
+
+cat("========================================================================\n")
+cat("TASK 1: Loading TSE and preparing lifestyle data\n")
+cat("========================================================================\n\n")
+
+# Load TSE from 01-tse-construction
+tse_path <- here("data", "01-tse-construction", "tse.rds")
+if (!file.exists(tse_path)) {
+  stop("TSE file not found at: ", tse_path)
+}
+
+tse <- readRDS(tse_path)
+
+cat("✅ TSE object loaded\n")
+cat("   Dimensions:", nrow(tse), "vOTUs ×", ncol(tse), "samples\n\n")
+
+# Extract TPM abundance matrix
+tpm_matrix <- assay(tse, "tpm")
+
+# Extract sample metadata
+sample_metadata <- colData(tse) %>%
+  as.data.frame() %>%
+  rownames_to_column("sample_id") %>%
+  select(sample_id, sample_group)
+
+# Extract viral lifestyle annotation
+viral_annotation <- rowData(tse) %>%
+  as.data.frame() %>%
+  rownames_to_column("vOTU_id") %>%
+  select(vOTU_id, bacphlip_lifestyle) %>%
+  mutate(
+    lifestyle = case_when(
+      bacphlip_lifestyle == "temperate" ~ "lysogenic",
+      bacphlip_lifestyle == "lytic" ~ "lytic",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(lifestyle))
+
+cat("✅ Extracted data:\n")
+cat("   TPM matrix:", nrow(tpm_matrix), "vOTUs ×", ncol(tpm_matrix), "samples\n")
+cat("   Lifestyle annotation:", nrow(viral_annotation), "vOTUs\n\n")
+
+# Convert TPM matrix to long format
+tpm_long <- tpm_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column("vOTU_id") %>%
+  pivot_longer(
+    cols = -vOTU_id,
+    names_to = "sample_id",
+    values_to = "TPM"
+  ) %>%
+  filter(TPM > 0) %>%
+  left_join(sample_metadata, by = "sample_id") %>%
+  left_join(viral_annotation, by = "vOTU_id") %>%
+  filter(!is.na(lifestyle))
+
+cat("✅ TPM data with lifestyle annotation prepared\n")
+cat("   Total records:", nrow(tpm_long), "\n\n")
+
+cat("========================================================================\n")
+cat("TASK 1 COMPLETED\n")
+cat("========================================================================\n\n")
+
+
+```
+
+
+### Task 2: Calculate LPI and Abundant/Rare ratios
+
+```{r}
+#| label: task2-calculate-metrics
+
+cat("========================================================================\n")
+cat("TASK 2: Calculating LPI and lifestyle ratios\n")
+cat("========================================================================\n\n")
+
+# ========== LPI Calculation ==========
+cat("Calculating Lysogenic Potential Index (LPI)...\n")
+
+# Calculate total TPM for each lifestyle in each sample group
+lifestyle_summary <- tpm_long %>%
+  group_by(sample_group, lifestyle) %>%
+  summarise(total_TPM = sum(TPM), .groups = "drop")
+
+# Calculate LPI = lysogenic / (lysogenic + lytic)
+lpi_data <- lifestyle_summary %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = total_TPM,
+    values_fill = 0
+  ) %>%
+  mutate(
+    LPI = lysogenic / (lysogenic + lytic),
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
+  ) %>%
+  arrange(sample_group)
+
+cat("✅ LPI calculated:\n")
+print(lpi_data)
+cat("\n")
+
+# ========== Abundant/Rare Ratio Calculation ==========
+cat("Calculating abundant/rare lifestyle ratios...\n")
+
+# Calculate relative abundance for each vOTU in each sample group
+sample_totals <- tpm_long %>%
+  group_by(sample_group) %>%
+  summarise(total_TPM = sum(TPM), .groups = "drop")
+
+abundance_rel <- tpm_long %>%
+  left_join(sample_totals, by = "sample_group", suffix = c("", "_total")) %>%
+  mutate(rel_abundance = (TPM / total_TPM) * 100)
+
+# Define Abundant vOTUs (≥1%)
+abundant_data <- abundance_rel %>%
+  filter(rel_abundance >= 1) %>%
+  group_by(sample_group, lifestyle) %>%
+  summarise(
+    total_rel_abundance = sum(rel_abundance),
+    n_vOTUs = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = c(total_rel_abundance, n_vOTUs),
+    values_fill = 0
+  ) %>%
+  mutate(
+    ratio = if_else(
+      total_rel_abundance_lytic > 0,
+      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+      NA_real_
+    ),
+    n_lysogenic = n_vOTUs_lysogenic,
+    category = "Abundant viruses"
+  ) %>%
+  select(sample_group, ratio, n_lysogenic, category)
+
+# Define Rare vOTUs (<0.1%)
+rare_data <- abundance_rel %>%
+  filter(rel_abundance < 0.1 & rel_abundance > 0) %>%
+  group_by(sample_group, lifestyle) %>%
+  summarise(
+    total_rel_abundance = sum(rel_abundance),
+    n_vOTUs = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = c(total_rel_abundance, n_vOTUs),
+    values_fill = 0
+  ) %>%
+  mutate(
+    ratio = if_else(
+      total_rel_abundance_lytic > 0,
+      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+      NA_real_
+    ),
+    n_lysogenic = n_vOTUs_lysogenic,
+    category = "Rare viruses"
+  ) %>%
+  select(sample_group, ratio, n_lysogenic, category)
+
+# Combine abundant and rare data
+bubble_data <- bind_rows(abundant_data, rare_data) %>%
+  mutate(
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA")),
+    category = factor(category, levels = c("Abundant viruses", "Rare viruses"))
+  ) %>%
+  filter(!is.na(ratio) & ratio > 0)
+
+cat("✅ Abundant/Rare ratios calculated:\n")
+print(bubble_data)
+cat("\n")
+
+cat("========================================================================\n")
+cat("TASK 2 COMPLETED\n")
+cat("========================================================================\n\n")
+
+
+```
+
+
+### Task 3: Create and save both figures
+
+```{r}
+#| label: task3-create-figures
+#| fig.width: 14
+#| fig.height: 6
+
+cat("========================================================================\n")
+cat("TASK 3: Creating FigS3a (LPI) and FigS3b (Bubble plot)\n")
+cat("========================================================================\n\n")
+
+# ========== FigS3a: LPI Line Plot ==========
+cat("Creating FigS3a: LPI line plot...\n")
+
+# Color scheme (matching Fig 2g)
+sample_colors <- c(
+  "BS" = "#E69F00",  # Orange
+  "SA" = "#56B4E9",  # Light blue
+  "IA" = "#009E73",  # Green
+  "DA" = "#F0E442"   # Yellow
+)
+
+p_figs3a <- ggplot(lpi_data, aes(x = sample_group, y = LPI, color = sample_group)) +
+  # Point layer
+  geom_point(size = 5, alpha = 0.8) +
+  # Line layer
+  geom_line(aes(group = 1), color = "gray50", linewidth = 0.8, linetype = "solid") +
+  # Add value labels
+  geom_text(
+    aes(label = sprintf("%.2f", LPI)),
+    vjust = -1.2,
+    size = 4.5,
+    family = "Times",
+    color = "black"
+  ) +
+  # Y-axis settings
+  scale_y_continuous(
+    limits = c(0, max(lpi_data$LPI, na.rm = TRUE) * 1.15),
+    breaks = seq(0, 1, 0.1),
+    labels = function(x) sprintf("%.1f", x),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  # Color settings
+  scale_color_manual(values = sample_colors, name = NULL) +
+  # Labels
+  labs(x = NULL, y = "Lysogenic Potential Index (LPI)") +
+  # Theme
+  theme_minimal(base_size = 20) +
+  theme(
+    text = element_text(family = "Times"),
+    legend.position = "none",
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black", linewidth = 1),
+    axis.ticks = element_line(color = "black", linewidth = 0.8),
+    axis.text = element_text(color = "black", size = 18, family = "Times"),
+    axis.title.y = element_text(size = 20, face = "plain", family = "Times"),
+    axis.title.x = element_blank(),
+    plot.margin = margin(15, 20, 10, 10)
+  )
+
+cat("✅ FigS3a created\n\n")
+
+# ========== FigS3b: Bubble Plot ==========
+cat("Creating FigS3b: Bubble plot...\n")
+
+# Color scheme for categories
+category_colors <- c(
+  "Abundant viruses" = "#000000",  # Black
+  "Rare viruses" = "#E74C3C"       # Red
+)
+
+p_figs3b <- ggplot(bubble_data, aes(x = sample_group, y = ratio, 
+                                     size = n_lysogenic, color = category)) +
+  # Filled circles
+  geom_point(alpha = 0.85, shape = 16) +
+  # Y-axis settings
+  scale_y_continuous(
+    name = "Ratio of lysogenic/lytic",
+    limits = c(-0.05, max(bubble_data$ratio, na.rm = TRUE) * 1.1),
+    expand = expansion(mult = c(0, 0.02)),
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  # Size scale
+  scale_size_continuous(
+    name = "Number of lysogenic vOTUs",
+    breaks = c(1, 5, 10, 15),
+    range = c(2, 12)
+  ) +
+  # Color scale
+  scale_color_manual(
+    values = category_colors,
+    name = NULL
+  ) +
+  # Labels
+  labs(x = NULL, y = "Ratio of lysogenic/lytic") +
+  # Guides
+  guides(
+    color = guide_legend(override.aes = list(size = 4)),
+    size = guide_legend(override.aes = list(color = "black"))
+  ) +
+  # Theme
+  theme_minimal(base_size = 22) +
+  theme(
+    text = element_text(family = "Times"),
+    axis.text.x = element_text(color = "black", size = 18, family = "Times"),
+    axis.text.y = element_text(color = "black", size = 18, family = "Times"),
+    axis.title.y = element_text(size = 20, face = "plain", family = "Times"),
+    axis.title.x = element_blank(),
+    axis.line = element_line(color = "black", linewidth = 0.8),
+    axis.ticks = element_line(color = "black", linewidth = 0.5),
+    legend.position = "right",
+    legend.box = "vertical",
+    legend.direction = "vertical",
+    legend.margin = margin(10, 10, 10, 10),
+    legend.background = element_blank(),
+    legend.key = element_blank(),
+    legend.text = element_text(size = 11, family = "Times"),
+    legend.title = element_text(size = 12, family = "Times"),
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    plot.margin = margin(15, 15, 15, 15)
+  )
+
+cat("✅ FigS3b created\n\n")
+
+# ========== Display Combined Figure ==========
+p_combined <- p_figs3a + p_figs3b + plot_annotation(tag_levels = 'a')
+print(p_combined)
+
+# ========== Save Figures ==========
+cat("Saving figures...\n")
+
+# Save FigS3a
+ggsave(
+  path_target("FigS3a_LPI_lineplot.png"),
+  plot = p_figs3a,
+  width = 6, height = 6, dpi = 300
+)
+
+# Save FigS3b
+ggsave(
+  path_target("FigS3b_bubble_lifestyle.png"),
+  plot = p_figs3b,
+  width = 8, height = 6, dpi = 300
+)
+
+# Save combined figure
+ggsave(
+  path_target("FigS3_combined.png"),
+  plot = p_combined,
+  width = 14, height = 6, dpi = 300
+)
+
+cat("✅ Figures saved:\n")
+cat("   - FigS3a_LPI_lineplot.png (6×6, 300 DPI)\n")
+cat("   - FigS3b_bubble_lifestyle.png (8×6, 300 DPI)\n")
+cat("   - FigS3_combined.png (14×6, 300 DPI)\n\n")
+
+cat("========================================================================\n")
+cat("TASK 3 COMPLETED\n")
+cat("========================================================================\n\n")
+
+
+```

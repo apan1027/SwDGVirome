@@ -1,0 +1,801 @@
+---
+title: "05-fig5-heatmap3"
+title-block-banner: true
+author:
+  - name: Jinlong Ru
+    orcid: 0000-0002-6757-6018
+date: 2025-12-20
+toc: true
+toc-depth: 4
+number-sections: true
+code-fold: true
+code-line-numbers: true
+code-tools: true
+format: 
+  html:
+    embed-resources: true
+    smooth-scroll: true
+    page-layout: full
+reference-location: section
+citation-location: document
+params:
+  name: "05-fig5-heatmap3"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+The purpose of this document is ...
+
+```{r}
+#| label: params
+#| eval: !expr interactive()
+#| include: false
+params = list(name = "05-fig5-heatmap3")
+```
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "3226498a-f57a-4ff6-bfc6-7547d0ec8367")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+#| label: packages
+#| message: false
+suppressPackageStartupMessages({
+  library(here)
+  library(tidyverse)
+  library(TreeSummarizedExperiment)
+  library(ComplexHeatmap)      # ✅ 新增：ComplexHeatmap
+  library(circlize)            # ✅ 新增：circlize (ComplexHeatmap依赖)
+  library(KEGGREST)
+  library(openxlsx)
+  library(progress)
+  library(viridis)
+})
+
+```
+
+## Tasks
+
+This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
+
+Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
+
+Below is an example structure to get you started:
+
+### Task 1: ata-extraction
+
+```{r}
+#| label: data-extraction
+# ============================================================================
+# STEP 1: 从TSE加载数据
+# ============================================================================
+cat("Part 1: Loading TSE object...\n\n")
+
+tse_path <- here::here("data", "01-tse-construction", "tse.rds")
+
+
+# ✅ 加载TSE对象
+tse <- readRDS(tse_path)  # ← 这行被漏掉了！
+
+
+# Extract AMG tables from metadata
+amg_dramv <- metadata(tse)$amg_dramv
+amg_vibrant <- metadata(tse)$amg_vibrant
+
+message("✅ Extracted AMG data:")
+message("   DRAM-v: ", nrow(amg_dramv), " rows × ", ncol(amg_dramv), " cols")
+message("   VIBRANT: ", nrow(amg_vibrant), " rows × ", ncol(amg_vibrant), " cols")
+
+# Check key columns
+message("   DRAM-v columns: ", paste(head(colnames(amg_dramv), 5), collapse = ", "), "...")
+message("   VIBRANT columns: ", paste(head(colnames(amg_vibrant), 5), collapse = ", "), "...")
+
+message("\n✅ Task 1 完成！\n")
+```
+
+### Task 2: annotate-kegg
+
+```{r}
+#| label: annotate-kegg
+#| message: true
+#| warning: true
+
+message("=== Task 2: Annotate AMG Genes with KEGG ===")
+
+# 2.1 提取所有唯一的dbid
+dramv_ids <- amg_dramv %>%
+  select(dbid) %>%
+  filter(!is.na(dbid)) %>%
+  distinct() %>%
+  mutate(source = "DRAM-v")
+
+vibrant_ids <- amg_vibrant %>%
+  select(dbid) %>%
+  filter(!is.na(dbid)) %>%
+  distinct() %>%
+  mutate(source = "VIBRANT")
+
+all_ids <- bind_rows(dramv_ids, vibrant_ids) %>%
+  distinct(dbid)
+
+message("🔍 提取到唯一dbid数量: ", nrow(all_ids))
+
+# 2.2 定义KEGG注释函数
+get_kegg_info <- function(id) {
+  message("🧬 正在查询: ", id)
+
+  # KO号 (Kxxxxx)
+  if (str_detect(id, "^K\\d{5}")) {
+    entry <- tryCatch(keggGet(id)[[1]], error = function(e) NULL)
+    if (!is.null(entry)) {
+      return(tibble(
+        dbid = id,
+        db_type = "KEGG_KO",
+        Name = entry$NAME[1] %||% NA_character_,
+        Definition = entry$DEFINITION %||% NA_character_,
+        Pathway = if (!is.null(entry$PATHWAY)) paste(names(entry$PATHWAY), collapse = "; ") else NA_character_,
+        Module = if (!is.null(entry$MODULE)) paste(names(entry$MODULE), collapse = "; ") else NA_character_,
+        Class = if (!is.null(entry$CLASS)) paste(entry$CLASS, collapse = "; ") else NA_character_
+      ))
+    }
+  }
+
+  # EC编号 (x.x.x.x)
+  if (str_detect(id, "^\\d+\\.\\d+\\.\\d+\\.\\d+")) {
+    entry <- tryCatch(keggGet(paste0("ec:", id))[[1]], error = function(e) NULL)
+    if (!is.null(entry)) {
+      return(tibble(
+        dbid = id,
+        db_type = "EC_Number",
+        Name = entry$NAME[1] %||% NA_character_,
+        Definition = entry$DEFINITION %||% NA_character_,
+        Pathway = if (!is.null(entry$PATHWAY)) paste(names(entry$PATHWAY), collapse = "; ") else NA_character_,
+        Module = NA_character_,
+        Class = NA_character_
+      ))
+    }
+  }
+
+  # 无法识别的ID
+  return(tibble(
+    dbid = id,
+    db_type = "Other_DB",
+    Name = NA_character_,
+    Definition = NA_character_,
+    Pathway = NA_character_,
+    Module = NA_character_,
+    Class = NA_character_
+  ))
+}
+
+# 2.3 执行注释
+message("🚀 开始注释所有dbid，请稍等...")
+annotations <- purrr::map_dfr(all_ids$dbid, get_kegg_info)
+
+message("✅ 注释完成: ", nrow(annotations), " dbids")
+message("   有Pathway的: ", sum(!is.na(annotations$Pathway)))
+message("   无Pathway的: ", sum(is.na(annotations$Pathway)))
+
+# 2.4 合并回原始表格
+dramv_annotated <- left_join(amg_dramv, annotations, by = "dbid")
+vibrant_annotated <- left_join(amg_vibrant, annotations, by = "dbid")
+
+# 2.5 导出注释表格
+write.xlsx(annotations, path_target("all_kegg_annotations.xlsx"), rowNames = FALSE)
+write.xlsx(dramv_annotated, path_target("dramv_with_annotations.xlsx"), rowNames = FALSE)
+write.xlsx(vibrant_annotated, path_target("vibrant_with_annotations.xlsx"), rowNames = FALSE)
+
+message("💾 保存注释结果:")
+message("   all_kegg_annotations.xlsx")
+message("   dramv_with_annotations.xlsx")
+message("   vibrant_with_annotations.xlsx")
+
+message("\n✅ Task 2 完成！\n")
+```
+
+
+### Task 3: pathway-split-classify
+
+```{r}
+#| label: pathway-split-classify
+#| message: true
+#| warning: true
+
+message("=== Task 3: Pathway Splitting and Classification ===")
+
+# 3.1 读取已注释的AMG表
+dramv_anno <- read.xlsx(path_target("dramv_with_annotations.xlsx"))
+vibrant_anno <- read.xlsx(path_target("vibrant_with_annotations.xlsx"))
+
+# 3.2 合并并添加来源标记
+combined_raw <- bind_rows(
+  dramv_anno %>% mutate(Source = "DRAM-v"),
+  vibrant_anno %>% mutate(Source = "VIBRANT")
+)
+
+original_row_count <- nrow(combined_raw)
+message("✅ 原始数据行数: ", original_row_count)
+
+# 3.3 拆分Pathway（核心步骤！）
+long_pathway <- combined_raw %>%
+  mutate(
+    has_pathway = !is.na(Pathway) & Pathway != "",
+    row_id = row_number()
+  ) %>%
+  mutate(
+    Pathway_ID = ifelse(has_pathway, Pathway, NA_character_)
+  ) %>%
+  separate_rows(Pathway_ID, sep = ";\\s*", convert = FALSE) %>%
+  mutate(
+    Pathway_ID = str_trim(Pathway_ID),
+    Pathway_ID = ifelse(Pathway_ID == "", NA_character_, Pathway_ID),
+    is_expanded = ifelse(has_pathway & !is.na(Pathway_ID), TRUE, FALSE)
+  )
+
+expanded_row_count <- nrow(long_pathway)
+message("🔍 扩展后行数: ", expanded_row_count, " (增加: ", expanded_row_count - original_row_count, ")")
+
+# 3.4 获取唯一Pathway ID列表
+pathway_ids <- unique(na.omit(long_pathway$Pathway_ID))
+total_ids <- length(pathway_ids)
+message("📊 需要查询的通路数量: ", total_ids)
+
+# 3.5 定义KEGG查询函数（修正版）
+get_pathway_info <- function(map_id, index, total) {
+  message(sprintf("[%d/%d] 🔍 查询通路: %s", index, total, map_id))
+
+  tryCatch({
+    entry <- keggGet(map_id)[[1]]
+    name <- ifelse(!is.null(entry$NAME), paste(entry$NAME, collapse = "; "), NA)
+    full_class <- ifelse(!is.null(entry$CLASS), paste(entry$CLASS, collapse = "; "), NA)
+
+     
+    # ✅ 七大类匹配（添加硬编码规则识别1.0类别）
+    top_class <- case_when(
+      # ✅ 新增：硬编码识别1.0 Global and overview maps (都属于Metabolism)
+      map_id %in% c(
+        "map01100",  # Metabolic pathways
+        "map01110",  # Biosynthesis of secondary metabolites
+        "map01120",  # Microbial metabolism in diverse environments
+        "map01200",  # Carbon metabolism
+        "map01210",  # 2-Oxocarboxylic acid metabolism
+        "map01212",  # Fatty acid metabolism
+        "map01230",  # Biosynthesis of amino acids
+        "map01232",  # Nucleotide metabolism
+        "map01250",  # Biosynthesis of nucleotide sugars
+        "map01240",  # Biosynthesis of cofactors
+        "map01220",  # Degradation of aromatic compounds
+        "map01310",  # Nitrogen cycle
+        "map01320"   # Sulfur cycle
+      ) ~ "Metabolism",  
+      
+      
+       # 原有的基于CLASS字段的匹配
+      str_detect(full_class, "Metabolism") ~ "Metabolism",
+      str_detect(full_class, "Genetic Information") ~ "Genetic Information Processing",
+      str_detect(full_class, "Environmental Information") ~ "Environmental Information Processing",
+      str_detect(full_class, "Cellular Processes") ~ "Cellular Processes",
+      str_detect(full_class, "Organismal Systems") ~ "Organismal Systems",
+      str_detect(full_class, "Human Diseases") ~ "Human Diseases",
+      str_detect(full_class, "Drug Development") ~ "Drug Development",
+      TRUE ~ "Other"
+    )
+
+    message(sprintf("  ✅ 获取成功: %s -> %s", name, top_class))
+
+    tibble(
+      Pathway_ID = map_id,
+      Pathway_Name = name,
+      Pathway_Class = full_class,
+      Pathway_Top_Category = top_class
+    )
+
+  }, error = function(e) {
+    prefix <- substr(map_id, 4, 5)
+    top_class <- case_when(
+      prefix == "01" ~ "Metabolism",
+      prefix == "02" ~ "Genetic Information Processing",
+      prefix == "03" ~ "Environmental Information Processing",
+      prefix == "04" ~ "Cellular Processes",
+      prefix == "05" ~ "Organismal Systems",
+      prefix == "06" ~ "Human Diseases",
+      prefix == "07" ~ "Drug Development",
+      TRUE ~ "Other"
+    )
+
+    message(sprintf("  ⚠️ 查询失败: %s -> 使用备用分类: %s", e$message, top_class))
+
+    tibble(
+      Pathway_ID = map_id,
+      Pathway_Name = paste("Unknown", map_id),
+      Pathway_Class = NA_character_,
+      Pathway_Top_Category = top_class
+    )
+  })
+}
+
+# 3.6 批量查询KEGG
+message("⏳ 开始批量查询KEGG API...")
+pathway_annotations <- tibble()
+
+pb <- progress::progress_bar$new(
+  format = "[:bar] :percent 剩余: :eta",
+  total = total_ids,
+  clear = FALSE
+)
+
+for (i in seq_along(pathway_ids)) {
+  id <- pathway_ids[i]
+  res <- get_pathway_info(id, i, total_ids)
+  pathway_annotations <- bind_rows(pathway_annotations, res)
+  pb$tick()
+
+  if (i %% 10 == 0) Sys.sleep(0.3)
+}
+
+# 3.7 合并Pathway注释
+long_pathway_annotated <- long_pathway %>%
+  left_join(pathway_annotations, by = "Pathway_ID") %>%
+  mutate(
+    annotation_status = case_when(
+      is.na(Pathway_ID) ~ "No Pathway",
+      is.na(Pathway_Name) ~ "Missing Annotation",
+      str_starts(Pathway_Name, "Unknown") ~ "API Failed",
+      TRUE ~ "Annotated"
+    )
+  )
+
+# 3.8 保存结果
+write.xlsx(long_pathway_annotated, path_target("long_pathway_with_annotation.xlsx"))
+message("💾 保存: long_pathway_with_annotation.xlsx")
+
+pathway_class_ref <- pathway_annotations %>%
+  distinct(Pathway_ID, Pathway_Name, Pathway_Class, Pathway_Top_Category)
+write.xlsx(pathway_class_ref, path_target("pathway_classification_reference.xlsx"))
+message("💾 保存: pathway_classification_reference.xlsx")
+
+# 3.9 统计
+message("\n📊 最终统计:")
+message("  - 查询成功的通路: ", sum(!str_starts(pathway_annotations$Pathway_Name, "Unknown")), "/", total_ids)
+print(table(pathway_annotations$Pathway_Top_Category))
+
+message("\n✅ Task 3 完成！\n")
+
+
+```
+
+
+### Task 4: merge-tpm-metadata
+
+```{r}
+#| label: merge-tpm-metadata
+#| message: true
+#| warning: true
+
+message("=== Task 4: Merge TPM and Metadata ===")
+
+# 4.1 从TSE提取TPM丰度矩阵
+tpm_matrix <- assays(tse)$tpm
+sample_meta <- colData(tse) %>% as_tibble(rownames = "sample_id")
+
+# 4.2 转换TPM为长格式
+tpm_long <- tpm_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column("vOTU_id") %>%
+  pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM")
+
+message("✅ TPM长格式: ", nrow(tpm_long), " 行")
+
+# 4.3 合并样品元数据
+tpm_long_meta <- tpm_long %>%
+  left_join(sample_meta, by = "sample_id") %>%
+  mutate(sample_source1 = as.character(sample_group))
+
+message("✅ 合并样品元数据完成")
+
+# 4.4 读取拆分后的pathway表
+long_pathway <- read.xlsx(path_target("long_pathway_with_annotation.xlsx"))
+
+# 4.5 合并所有信息
+final_df <- long_pathway %>%
+  left_join(tpm_long_meta, by = "vOTU_id")
+
+message("✅ 最终合并表: ", nrow(final_df), " 行")
+
+# 4.6 保存
+write.xlsx(final_df, path_target("full_merged_pathway_table.xlsx"), rowNames = FALSE)
+message("💾 保存: full_merged_pathway_table.xlsx")
+
+message("\n✅ Task 4 完成！\n")
+```
+
+
+### Task 5: dedup-calculate-tpm
+
+```{r}
+#| label: dedup-calculate-tpm
+#| message: true
+#| warning: true
+
+message("=== Task 5: Deduplicate and Calculate Pathway Total TPM ===")
+
+# 5.1 读取完整合并表
+full_df <- read.xlsx(path_target("full_merged_pathway_table.xlsx"))
+
+# 5.2 去重
+deduplicated_df <- full_df %>%
+  arrange(vOTU_id, dbid, Pathway_ID, sample_id, 
+          match(Source, c("DRAM-v", "VIBRANT"))) %>%
+  distinct(vOTU_id, dbid, Pathway_ID, sample_id, .keep_all = TRUE)
+
+message("✅ 去重完成: ", nrow(full_df), " → ", nrow(deduplicated_df))
+
+write.xlsx(deduplicated_df, path_target("deduplicated_pathway_table.xlsx"), rowNames = FALSE)
+
+# 5.3 数据清洗
+filtered_df <- deduplicated_df %>%
+  filter(!is.na(Pathway_ID), !is.na(Pathway_Name), !is.na(sample_source1)) %>%
+  filter(!is.na(TPM)) %>%
+  mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"), 
+                                 "Metabolism", "Other"))
+
+message("✅ 有效Pathway行数: ", nrow(filtered_df))
+
+# 5.4 统计每个Pathway的总TPM
+samples <- c("BS", "SA", "IA", "DA")
+
+heatmap_matrix <- filtered_df %>%
+  group_by(Pathway_ID, Pathway_Name, Pathway_Group, sample_source1) %>%
+  summarise(Total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = sample_source1, values_from = Total_TPM, values_fill = 0)
+
+final_df_stats <- heatmap_matrix %>%
+  mutate(
+    Total_TPM = rowSums(across(all_of(samples))),
+    Samples_Expressed = rowSums(across(all_of(samples), ~ .x > 0))
+  ) %>%
+  arrange(desc(Total_TPM))
+
+message("✅ Heatmap矩阵: ", nrow(final_df_stats), " pathways")
+
+write.xlsx(final_df_stats, path_target("heatmap_matrix_with_pathway_group.xlsx"), rowNames = FALSE)
+message("💾 保存: heatmap_matrix_with_pathway_group.xlsx")
+
+```
+
+
+
+
+### Task 6: plot-pathway-heatmap
+
+```{r}
+#| label: plot-pathway-heatmap
+#| message: true
+#| warning: true
+#| fig.width: 10
+#| fig.height: 12
+
+message("=== Task 6: Plot Pathway Heatmap ===")
+
+# 6.1 读取数据
+df <- read.xlsx(path_target("heatmap_matrix_with_pathway_group.xlsx"))
+samples <- c("BS", "SA", "IA", "DA")
+
+# 6.2 提取通路名主干
+df <- df %>%
+  mutate(Pathway_Short = sub(";.*", "", Pathway_Name))
+
+# 6.3 转换为log10(TPM + 1)
+df_heatmap <- df %>%
+  select(Pathway_Short, all_of(samples)) %>%
+  mutate(across(all_of(samples), ~log10(. + 1))) %>%
+  column_to_rownames("Pathway_Short")
+
+# 确保列顺序
+df_heatmap <- df_heatmap[, samples]
+
+message("✅ 准备绘图: ", nrow(df_heatmap), " pathways × ", ncol(df_heatmap), " samples")
+
+# 6.4 读取pathway分类信息（用于颜色标注）
+anno_df <- read.xlsx(path_target("pathway_classification_reference.xlsx")) %>%
+  mutate(Pathway_Short = sub(";.*", "", Pathway_Name)) %>%
+  select(Pathway_Short, Pathway_Top_Category)
+
+# 6.5 匹配分类并设置颜色
+matched <- df_heatmap %>%
+  rownames_to_column("Pathway_Short") %>%
+  left_join(anno_df, by = "Pathway_Short")
+
+# 代谢通路=橙色，其他=蓝色
+label_colors <- ifelse(
+  str_starts(matched$Pathway_Top_Category, "Metabolism"), 
+  "#D97706",  # 橙色
+  "#2563EB"   # 蓝色
+)
+
+# 转为矩阵
+mat <- as.matrix(df_heatmap)
+
+# 6.6 绘制ComplexHeatmap
+message("🎨 绘制ComplexHeatmap...")
+
+ht <- ComplexHeatmap::Heatmap(
+  mat,
+  name = "log10(TPM + 1)",
+  col = viridis::inferno(100),
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  width = unit(10, "cm"),
+  height = unit(18, "cm"),
+  
+  # 行标签设置（带颜色）
+  row_names_side = "left",
+  row_names_gp = gpar(fontsize = 9, fontfamily = "Times", col = label_colors),
+  row_names_max_width = unit(7, "cm"),
+  
+  # 列标签设置
+  show_column_names = TRUE,
+  column_names_side = "bottom",
+  column_names_rot = 0,
+  column_names_gp = gpar(fontsize = 18, fontfamily = "Times", fontface = "plain"),
+  
+  border = TRUE,
+  
+  # 图例设置
+  heatmap_legend_param = list(
+    title = NULL,
+    at = 0:6,
+    labels = as.character(0:6),
+    legend_height = unit(5, "cm"),
+    direction = "vertical",
+    grid_height = unit(0.3, "cm"),
+    labels_gp = gpar(fontsize = 10, fontfamily = "Times")
+  ),
+  
+  # 标题
+  column_title = "Pathway Abundance Across Samples (log10(TPM + 1))",
+  column_title_gp = gpar(fontsize = 12, fontfamily = "Times", fontface = "bold"),
+  
+  # 白色边框分隔
+  cell_fun = function(j, i, x, y, width, height, fill) {
+    grid.rect(x, y, width, height,
+              gp = gpar(col = "white", fill = NA, lwd = 0.3))
+  }
+)
+
+ComplexHeatmap::draw(ht)
+
+# 6.7 保存PNG (120 DPI)
+png(path_target("Fig5_pathway_heatmap.png"),
+    width = 1000, height = 1000, res = 120)
+draw(ht)
+dev.off()
+
+# 6.8 保存PDF
+pdf(path_target("Fig5_pathway_heatmap.pdf"),
+    width = 12, height = 16)
+draw(ht)
+dev.off()
+
+# 6.9 保存高分辨率PNG (300 DPI)
+png(path_target("Fig5_pathway_heatmap_highres.png"),
+    width = 3600, height = 4800, res = 300)
+draw(ht)
+dev.off()
+
+message("💾 保存图片:")
+message("   - Fig5_pathway_heatmap.png (标准分辨率)")
+message("   - Fig5_pathway_heatmap.pdf (矢量图)")
+message("   - Fig5_pathway_heatmap_highres.png (高分辨率)")
+
+# 6.10 保存数据
+write.csv(df_heatmap %>% rownames_to_column("Pathway_Short"),
+          path_target("log10_TPM_heatmap_matrix.csv"), 
+          row.names = FALSE)
+
+message("\n✅ Task 6 完成！ComplexHeatmap已生成！")
+message("   - 代谢通路: 橙色标签 (#D97706)")
+message("   - 其他通路: 蓝色标签 (#2563EB)")
+message("   - 配色: inferno (黄→红→黑)")
+```
+
+
+### Task 7: Plot Top 20 AMG Gene Heatmap (Total TPM排序) - 精准映射版
+```{r}
+#| label: plot-amg-heatmap-total
+#| message: true
+#| warning: true
+#| fig.width: 8
+#| fig.height: 10
+
+library(pheatmap)
+library(RColorBrewer)
+
+message("=== Task 7: Plot Top 20 AMG Gene Heatmap (Total TPM排序) ===")
+
+# 7.1 读取去重后的pathway表
+df <- read.xlsx(path_target("deduplicated_pathway_table.xlsx"))
+
+# 7.2 清理数据
+df_clean <- df %>%
+  select(dbid, vOTU_id, sample_source1, TPM, db_desc) %>%
+  filter(!is.na(dbid), !is.na(sample_source1), !is.na(TPM)) %>%
+  distinct()
+
+message("✅ 清理后数据: ", nrow(df_clean), " 行")
+
+# 7.3 定义特殊映射表（精准指定的基因名）
+special_map <- tribble(
+  ~dbid, ~gene_symbol,
+  # 用户指定的特殊映射
+  "K00525", "nrdB",           # ribonucleoside-diphosphate reductase
+  "EC:1.17.4.1", "nrdB",      # 与K00525相同
+  "K00973", "rfbA",           # E2.7.7.24, rfbA, rffH → 用rfbA
+  "K01710", "rfbB",           # E4.2.1.46, rfbB, rffG → 用rfbB
+  "K00560", "thyA",           # thymidylate synthase → 用thyA
+  "K01520", "dut",            # dUTP pyrophosphatase → 用dut
+  "K00558", "DNMT1",          # DNA (cytosine-5-)-methyltransferase → 用DNMT1
+  "K17398", "DNMT3A",         # DNMT3A保持不变
+  "K00287", "folA"            # DHFR, folA → 用folA（更常见）
+)
+
+# 7.4 提取基因标签
+df_labeled <- df_clean %>%
+  left_join(special_map, by = "dbid") %>%
+  mutate(
+    # 如果有特殊映射，使用特殊映射
+    # 否则，提取分号前的第一个部分
+    auto_label = str_remove_all(db_desc, "\\[.*?\\]") %>%
+      str_split(";", simplify = TRUE) %>%
+      .[, 1] %>%
+      str_trim() %>%
+      str_split(",", simplify = TRUE) %>%
+      .[, 1] %>%
+      str_trim(),
+    
+    gene_symbol = if_else(is.na(gene_symbol), auto_label, gene_symbol)
+  ) %>%
+  select(-auto_label)
+
+message("✅ 标签提取完成")
+
+# 检查映射效果
+mapped_genes <- df_labeled %>%
+  filter(dbid %in% special_map$dbid) %>%
+  select(dbid, gene_symbol, db_desc) %>%
+  distinct() %>%
+  arrange(dbid)
+
+if (nrow(mapped_genes) > 0) {
+  message("\n✅ 特殊映射效果:")
+  print(as.data.frame(mapped_genes))
+}
+
+# 7.5 汇总每个基因在每个样品中的总TPM
+gene_summary <- df_labeled %>%
+  group_by(gene_symbol, sample_source1) %>%
+  summarise(Total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
+
+# 7.6 转换为宽表
+gene_matrix <- gene_summary %>%
+  pivot_wider(names_from = sample_source1, values_from = Total_TPM, values_fill = 0)
+
+# 7.7 筛选Top 20（按所有样品总和排序）
+samples <- c("BS", "SA", "IA", "DA")
+available_samples <- intersect(samples, colnames(gene_matrix))
+
+gene_top20_total <- gene_matrix %>%
+  mutate(Sum_TPM = rowSums(across(all_of(available_samples)))) %>%
+  arrange(desc(Sum_TPM)) %>%
+  slice_head(n = 20) %>%
+  select(-Sum_TPM)
+
+message("\n✅ Top 20 AMG基因 (按总TPM排序):")
+print(gene_top20_total %>% select(gene_symbol, all_of(available_samples)))
+
+# 7.8 log10转换
+gene_log_matrix_total <- gene_top20_total %>%
+  select(gene_symbol, all_of(available_samples)) %>%
+  column_to_rownames("gene_symbol") %>%
+  mutate(across(everything(), ~log10(.x + 1)))
+
+gene_log_matrix_total <- gene_log_matrix_total[, available_samples]
+
+# 7.9 设置行名为斜体格式
+rownames(gene_log_matrix_total) <- paste0("italic('", rownames(gene_log_matrix_total), "')")
+
+message("\n✅ 准备绘图: ", nrow(gene_log_matrix_total), " genes × ", ncol(gene_log_matrix_total), " samples")
+
+# 7.10 配色
+my_colors <- colorRampPalette(brewer.pal(9, "YlOrRd"))(100)
+
+# 7.11 绘制pheatmap
+p_amg_total <- pheatmap::pheatmap(
+  gene_log_matrix_total,
+  color = my_colors,
+  cluster_rows = TRUE,
+  cluster_cols = FALSE,
+  show_colnames = TRUE,
+  show_rownames = TRUE,
+  labels_row = parse(text = rownames(gene_log_matrix_total)),
+  main = "",
+  fontsize_row = 10,
+  fontsize_col = 18,
+  fontsize = 13,
+  fontfamily = "Times",
+  angle_col = 0,
+  cellwidth = 35,
+  cellheight = 12,
+  border_color = "gray80"
+)
+
+# 7.12 保存图片
+ggsave(path_target("Fig5b_top20_AMG_heatmap.png"), 
+       plot = p_amg_total, width = 8, height = 10, dpi = 300)
+ggsave(path_target("Fig5b_top20_AMG_heatmap.pdf"), 
+       plot = p_amg_total, width = 8, height = 10)
+
+message("\n💾 保存AMG热图 (Total TPM排序):")
+message("   - Fig5b_top20_AMG_heatmap.png")
+message("   - Fig5b_top20_AMG_heatmap.pdf")
+
+# 7.13 保存数据表
+write.csv(gene_log_matrix_total %>% rownames_to_column("Gene"),
+          path_target("top20_AMG_total_log10_TPM_matrix.csv"), 
+          row.names = FALSE)
+
+write.xlsx(gene_top20_total, 
+           path_target("top20_AMG_total_corrected.xlsx"), 
+           rowNames = FALSE)
+
+message("\n✅ Task 7 完成！")
+message("   ✓ K00525, EC:1.17.4.1 → nrdB")
+message("   ✓ K00973 → rfbA")
+message("   ✓ K01710 → rfbB")
+message("   ✓ K00560 → thyA")
+message("   ✓ K01520 → dut")
+message("   ✓ K00558 → DNMT1")
+message("   ✓ K17398 → DNMT3A")
+message("   ✓ K00287 → folA\n")
+
+```
+
+
+
+### Task 3: 
+
+```{r}
+
+```
+
+
+
+
+
+
+## Files written
+
+These files have been written to the target directory, `r paste0("data/", params$name)`:
+
+```{r}
+#| label: list-files-target
+#| include: false
+projthis::proj_dir_info(path_target(), tz = "CET")
+```

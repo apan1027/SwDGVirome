@@ -1,0 +1,675 @@
+---
+title: "06-figs1-host-composition"
+title-block-banner: true
+author:
+  - name: Jinlong Ru
+    orcid: 0000-0002-6757-6018
+date: 2025-12-20
+toc: true
+toc-depth: 4
+number-sections: true
+code-fold: true
+code-line-numbers: true
+code-tools: true
+format: 
+  html:
+    embed-resources: true
+    smooth-scroll: true
+    page-layout: full
+reference-location: section
+citation-location: document
+params:
+  name: "06-figs1-host-composition"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+The purpose of this document is ...
+
+```{r}
+#| label: params
+#| eval: !expr interactive()
+#| include: false
+params = list(name = "06-figs1-host-composition")
+```
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "d4abc0c1-2a78-4c48-817e-0bf57f83b97d")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+#| label: packages
+#| message: false
+
+suppressPackageStartupMessages({
+  library(here)
+  library(mia)
+  library(tidyverse)
+  library(data.table)
+  library(RColorBrewer)
+  library(scales)
+  library(patchwork)
+})
+
+
+```
+
+## Tasks
+
+This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
+
+Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
+
+Below is an example structure to get you started:
+
+### Task 1: Load TSE object and extract data
+
+```{r}
+# Task 1: Load TSE and extract data
+cat("========================================================================\n")
+cat("TASK 1: Loading TSE object and extracting data\n")
+cat("========================================================================\n\n")
+
+# Load TSE from 01-tse-construction
+tse_path <- here( "data", "01-tse-construction", "tse.rds")
+if (!file.exists(tse_path)) {
+  stop("TSE file not found at: ", tse_path)
+}
+
+tse <- readRDS(tse_path)
+
+cat("✅ TSE object loaded\n")
+cat("   Dimensions:", nrow(tse), "vOTUs ×", ncol(tse), "samples\n")
+cat("   Assays:", paste(assayNames(tse), collapse = ", "), "\n\n")
+
+# Extract TPM abundance matrix (vOTU × sample)
+tpm_matrix <- assay(tse, "tpm")
+
+cat("✅ TPM matrix extracted\n")
+cat("   Dimensions:", nrow(tpm_matrix), "vOTUs ×", ncol(tpm_matrix), "samples\n")
+cat("   Sample names:", paste(colnames(tpm_matrix), collapse = ", "), "\n\n")
+
+# *** 关键：从 metadata 提取 host 数据 ***
+host_genome_edges <- metadata(tse)$host_genome_edges
+
+cat("✅ Host prediction data extracted from metadata\n")
+cat("   Host genome edges:", nrow(host_genome_edges), "rows\n")
+cat("   Columns:", paste(colnames(host_genome_edges), collapse = ", "), "\n\n")
+
+# Extract sample metadata from colData
+sample_metadata <- colData(tse) %>%
+  as.data.frame() %>%
+  rownames_to_column("sample_id") %>%
+  select(sample_id, sample_group)
+
+cat("✅ Sample metadata extracted\n")
+cat("   Samples:", nrow(sample_metadata), "\n")
+cat("   Sample groups:", paste(unique(sample_metadata$sample_group), collapse = ", "), "\n\n")
+
+```
+
+### Task2: prepare-data
+
+```{r}
+#| label: task2-prepare-data
+
+cat("========================================================================\n")
+cat("TASK 2: Filtering and preparing data\n")
+cat("========================================================================\n\n")
+
+# Step 1: Filter high-confidence predictions (Confidence.score >= 80)
+cat("Step 1: Filtering host predictions with Confidence.score >= 80...\n")
+
+host_high_conf <- host_genome_edges %>%
+  filter(Confidence.score >= 80)
+
+cat("✅ High-confidence predictions (edge level):", nrow(host_high_conf), "rows\n")
+cat("   Unique vOTUs:", n_distinct(host_high_conf$vOTU_id), "\n")
+cat("   Unique contigs:", n_distinct(host_high_conf$contig_id), "\n\n")
+
+# Step 2: Extract taxonomy and aggregate to vOTU level
+cat("Step 2: Extracting taxonomy and aggregating to vOTU level...\n")
+
+host_filtered <- host_high_conf %>%
+  # Extract Phylum and Class from Host.taxonomy
+  mutate(
+    Phylum = str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
+    Phylum = if_else(is.na(Phylum) | Phylum == "", "Unclassified", Phylum),
+    
+    Class = str_extract(Host.taxonomy, "(?<=c__)[^;]+"),
+    Class = if_else(is.na(Class) | Class == "", "Unclassified", Class)
+  ) %>%
+  # Keep only unique vOTU-taxonomy combinations
+  select(vOTU_id, Host.taxonomy, Phylum, Class) %>%
+  distinct()  # 这一步很重要！去除重复的 vOTU-Phylum/Class 组合
+
+cat("✅ Aggregated to vOTU level:", nrow(host_filtered), "rows\n")
+cat("   Unique vOTUs with host:", n_distinct(host_filtered$vOTU_id), "\n")
+cat("   Unique phyla:", n_distinct(host_filtered$Phylum), "\n")
+cat("   Unique classes:", n_distinct(host_filtered$Class), "\n\n")
+
+# Step 3: Convert TPM matrix to long format
+cat("Step 3: Converting TPM matrix to long format...\n")
+
+tpm_long <- tpm_matrix %>%
+  as.data.frame() %>%
+  rownames_to_column("vOTU_id") %>%
+  pivot_longer(
+    cols = -vOTU_id,
+    names_to = "sample_id",
+    values_to = "TPM"
+  ) %>%
+  filter(TPM > 0)
+
+cat("✅ TPM data converted to long format\n")
+cat("   Total non-zero entries:", nrow(tpm_long), "\n\n")
+
+# Step 4: Calculate total TPM per sample
+cat("Step 4: Calculating total TPM per sample...\n")
+
+sample_total_tpm <- tpm_long %>%
+  group_by(sample_id) %>%
+  summarise(total_TPM = sum(TPM), .groups = "drop")
+
+cat("✅ Total TPM per sample calculated\n")
+print(sample_total_tpm)
+cat("\n")
+
+cat("========================================================================\n")
+cat("TASK 2 COMPLETED\n")
+cat("========================================================================\n\n")
+
+
+```
+
+
+### Task 3: define-functions
+
+```{r}
+
+#| label: task3-define-functions
+
+cat("========================================================================\n")
+cat("TASK 3: Defining calculation and plotting functions\n")
+cat("========================================================================\n\n")
+
+# ================================================================================
+# Function 1: Calculate relative abundance (relative to all viruses)
+# ================================================================================
+
+calculate_host_abundance <- function(host_filtered, tpm_long, sample_total_tpm,
+                                     sample_metadata, tax_level = "Phylum") {
+  
+  cat("Processing", tax_level, "level (relative to all viruses)...\n")
+  
+  # Count hosts per virus at this taxonomic level
+  host_count <- host_filtered %>%
+    group_by(vOTU_id) %>%
+    summarise(n_hosts = n_distinct(!!sym(tax_level)), .groups = "drop")
+  
+  # Calculate weights for viruses with multiple hosts
+  host_weighted <- host_filtered %>%
+    left_join(host_count, by = "vOTU_id") %>%
+    mutate(weight = 1 / n_hosts) %>%
+    select(vOTU_id, !!sym(tax_level), weight) %>%
+    distinct()
+  
+  # Map virus abundance to host taxonomy (many-to-many expected)
+  host_abundance <- tpm_long %>%
+    inner_join(host_weighted, by = "vOTU_id", relationship = "many-to-many") %>%  # ← 加这个
+    mutate(weighted_TPM = TPM * weight)
+  
+  # Sum TPM per taxonomic group per sample
+  tax_abundance <- host_abundance %>%
+    group_by(sample_id, !!sym(tax_level)) %>%
+    summarise(tax_TPM = sum(weighted_TPM), .groups = "drop")
+  
+  # Calculate relative abundance (relative to ALL viruses)
+  tax_rel_abundance <- tax_abundance %>%
+    left_join(sample_total_tpm, by = "sample_id") %>%
+    mutate(rel_abundance = tax_TPM / total_TPM) %>%
+    select(sample_id, !!sym(tax_level), rel_abundance) %>%
+    left_join(sample_metadata, by = "sample_id")
+  
+  cat("✅", tax_level, "abundance calculated\n")
+  
+  return(tax_rel_abundance)
+}
+
+# ================================================================================
+# Function 2: Calculate 100% normalized abundance
+# ================================================================================
+
+calculate_host_abundance_normalized <- function(host_filtered, tpm_long,
+                                                sample_metadata, tax_level = "Phylum") {
+  
+  cat("Processing", tax_level, "level (100% normalized)...\n")
+  
+  # Count hosts per virus
+  host_count <- host_filtered %>%
+    group_by(vOTU_id) %>%
+    summarise(n_hosts = n_distinct(!!sym(tax_level)), .groups = "drop")
+  
+  # Calculate weights
+  host_weighted <- host_filtered %>%
+    left_join(host_count, by = "vOTU_id") %>%
+    mutate(weight = 1 / n_hosts) %>%
+    select(vOTU_id, !!sym(tax_level), weight) %>%
+    distinct()
+  
+  # Map abundance to taxonomy (many-to-many expected)
+  host_abundance <- tpm_long %>%
+    inner_join(host_weighted, by = "vOTU_id", relationship = "many-to-many") %>%  # ← 加这个
+    mutate(weighted_TPM = TPM * weight)
+  
+  # Sum per taxonomy per sample
+  tax_abundance <- host_abundance %>%
+    group_by(sample_id, !!sym(tax_level)) %>%
+    summarise(tax_TPM = sum(weighted_TPM), .groups = "drop")
+  
+  # Normalize to 100% within assigned viruses
+  tax_rel_abundance <- tax_abundance %>%
+    group_by(sample_id) %>%
+    mutate(
+      sample_assigned_total = sum(tax_TPM),
+      rel_abundance = tax_TPM / sample_assigned_total
+    ) %>%
+    ungroup() %>%
+    select(sample_id, !!sym(tax_level), rel_abundance) %>%
+    left_join(sample_metadata, by = "sample_id")
+  
+  cat("✅", tax_level, "abundance calculated (100% normalized)\n")
+  
+  return(tax_rel_abundance)
+}
+
+# ================================================================================
+# Function 3: Create stacked bar chart (不变)
+# ================================================================================
+create_stacked_bar <- function(tax_rel_abundance, tax_level = "Phylum", 
+                                top_n = 10, normalize = FALSE) {
+  
+  cat("Creating", tax_level, "stacked bar chart...\n")
+  
+  # Adjust top_n for class level
+  if (tax_level == "Class") {
+    top_n <- 15
+  }
+  
+  # Calculate total abundance per taxonomic group
+  tax_totals <- tax_rel_abundance %>%
+    group_by(!!sym(tax_level)) %>%
+    summarise(total_abund = sum(rel_abundance), .groups = "drop") %>%
+    arrange(desc(total_abund))
+  
+  # Keep top N, merge others
+  top_taxa <- tax_totals %>%
+    slice_head(n = top_n) %>%
+    pull(!!sym(tax_level))
+  
+  plot_data <- tax_rel_abundance %>%
+    mutate(
+      Taxa_display = if_else(!!sym(tax_level) %in% top_taxa, 
+                             !!sym(tax_level), "Others")
+    ) %>%
+    group_by(sample_group, Taxa_display) %>%
+    summarise(rel_abundance = sum(rel_abundance), .groups = "drop")
+  
+  # Order taxa for legend
+  taxa_order <- c(top_taxa, "Others")
+  
+  plot_data <- plot_data %>%
+    mutate(
+      Taxa_display = factor(Taxa_display, levels = rev(taxa_order)),
+      sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
+    )
+  
+  # Different color palettes for Phylum vs Class
+  n_colors <- length(taxa_order)
+  
+  if (tax_level == "Phylum") {
+    # Phylum uses Set3 (soft pastels)
+    if (n_colors <= 12) {
+      colors <- brewer.pal(max(3, n_colors), "Set3")
+    } else {
+      colors <- colorRampPalette(brewer.pal(12, "Set3"))(n_colors)
+    }
+  } else if (tax_level == "Class") {
+    # Class uses Paired (more distinctive paired colors)
+    if (n_colors <= 12) {
+      colors <- brewer.pal(max(3, n_colors), "Paired")
+    } else {
+      colors <- colorRampPalette(brewer.pal(12, "Paired"))(n_colors)
+    }
+  }
+  
+  names(colors) <- taxa_order
+  colors["Others"] <- "#CCCCCC"  # Gray for Others
+  
+  # Create plot - 使用 A1 的完整主题设置
+  p <- ggplot(plot_data, aes(x = sample_group, y = rel_abundance, fill = Taxa_display)) +
+    geom_bar(stat = "identity", position = "stack", width = 0.7, color = NA) +
+    scale_fill_manual(
+      values = colors,
+      name = tax_level
+    ) +
+    scale_y_continuous(
+      labels = function(x) sprintf("%.1f", x),
+      limits = if (!normalize) c(0, 1) else NULL,
+      breaks = if (!normalize) seq(0, 1, 0.2) else waiver(),
+      expand = expansion(mult = c(0, 0))
+    ) +
+    labs(
+      x = NULL,
+      y = "Relative abundance of predicted bacterial hosts"
+    ) +
+    # *** 使用 A1 的 theme_minimal + 完整设置 ***
+    theme_minimal(base_size = 22) +
+    theme(
+      text = element_text(family = "Times"),
+      # Axis text: size 20
+      axis.text.x = element_text(color = "black", size = 20),
+      axis.text.y = element_text(color = "black", size = 20),
+      # Axis title Y: size 20, plain
+      axis.title.y = element_text(size = 20, face = "plain", family = "Times"),
+      # Axis title X: blank
+      axis.title.x = element_blank(),
+      # Axis lines
+      axis.line = element_line(color = "black", linewidth = 1),
+      axis.ticks = element_line(color = "black", linewidth = 0.8),
+      # Legend
+      legend.position = "right",
+      legend.background = element_rect(fill = "white", color = NA),
+      legend.key.size = unit(0.4, "cm"),
+      legend.text = element_text(size = 10, face = "italic", family = "Times"),
+      legend.title = element_text(size = 12, face = "bold", family = "Times"),
+      # Panel settings
+      panel.grid = element_blank(),
+      panel.border = element_blank(),
+      plot.margin = margin(10, 10, 10, 10),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = NA)
+    )
+  
+  cat("✅", tax_level, "plot created\n")
+  
+  return(p)
+}
+cat("✅ All functions defined\n\n")
+
+cat("========================================================================\n")
+cat("TASK 3 COMPLETED\n")
+cat("========================================================================\n\n")
+
+```
+
+
+
+### Task 4: Calculate abundance data 
+
+```{r}
+#| label: task4-calculate-abundance
+
+cat("========================================================================\n")
+cat("TASK 4: Calculating host abundance across taxonomic levels\n")
+cat("========================================================================\n\n")
+
+cat("--- Original relative abundance (relative to all viruses) ---\n\n")
+
+# Phylum level (original - relative to all viruses)
+phylum_abundance_orig <- calculate_host_abundance(
+  host_filtered, 
+  tpm_long, 
+  sample_total_tpm, 
+  sample_metadata,
+  tax_level = "Phylum"
+)
+
+# Class level (original - relative to all viruses)
+class_abundance_orig <- calculate_host_abundance(
+  host_filtered, 
+  tpm_long, 
+  sample_total_tpm, 
+  sample_metadata,
+  tax_level = "Class"
+)
+
+cat("\n--- 100% normalized abundance (assigned viruses only) ---\n\n")
+
+# Phylum level (100% normalized)
+phylum_abundance_norm <- calculate_host_abundance_normalized(
+  host_filtered, 
+  tpm_long, 
+  sample_metadata,
+  tax_level = "Phylum"
+)
+
+# Class level (100% normalized)
+class_abundance_norm <- calculate_host_abundance_normalized(
+  host_filtered, 
+  tpm_long, 
+  sample_metadata,
+  tax_level = "Class"
+)
+
+cat("\n========================================================================\n")
+cat("TASK 4 COMPLETED\n")
+cat("  - Phylum-level abundance: original + normalized\n")
+cat("  - Class-level abundance: original + normalized\n")
+cat("========================================================================\n\n")
+
+
+```
+
+
+### Task 5: Create Figure S1 panels
+
+```{r}
+#| label: task5-create-plots
+#| fig-width: 12
+#| fig-height: 14
+
+cat("========================================================================\n")
+cat("TASK 5: Creating Figure S1 panels\n")
+cat("========================================================================\n\n")
+
+cat("--- Panel a & b: Original relative abundance ---\n\n")
+
+# Fig S1a: Phylum level (original)
+p_s1a <- create_stacked_bar(
+  phylum_abundance_orig, 
+  tax_level = "Phylum", 
+  top_n = 10,
+  normalize = FALSE
+)
+
+# Fig S1b: Class level (original)
+p_s1b <- create_stacked_bar(
+  class_abundance_orig, 
+  tax_level = "Class", 
+  top_n = 15,
+  normalize = FALSE
+)
+
+cat("\n--- Panel c & d: 100% normalized abundance ---\n\n")
+
+# Fig S1c: Phylum level (100% normalized)
+p_s1c <- create_stacked_bar(
+  phylum_abundance_norm, 
+  tax_level = "Phylum", 
+  top_n = 10,
+  normalize = TRUE
+)
+
+# Fig S1d: Class level (100% normalized)
+p_s1d <- create_stacked_bar(
+  class_abundance_norm, 
+  tax_level = "Class", 
+  top_n = 15,
+  normalize = TRUE
+)
+
+cat("\n--- Combining all panels into Figure S1 ---\n\n")
+
+# Combine all 4 panels using patchwork
+fig_s1_combined <- (p_s1a + p_s1b) / (p_s1c + p_s1d) +
+  plot_annotation(
+    tag_levels = 'a',
+    title = "Figure S1: Predicted viral host composition across groundwater depths"
+  ) &
+  theme(plot.tag = element_text(size = 18, face = "bold"))
+
+# Display combined figure
+print(fig_s1_combined)
+
+cat("\n========================================================================\n")
+cat("TASK 5 COMPLETED\n")
+cat("  - 4 panels created (a-d)\n")
+cat("  - Combined into single figure\n")
+cat("========================================================================\n\n")
+
+```
+
+
+
+### Task 6: Save outputs
+
+```{r}
+#| label: task6-save-outputs
+
+cat("========================================================================\n")
+cat("TASK 6: Saving publication-ready outputs (PNG only)\n")
+cat("========================================================================\n\n")
+
+# Create output directories
+figures_dir <- path_target("figures")
+data_dir <- path_target("data")
+dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Save individual plots (PNG only, 300 dpi)
+cat("Saving individual panel PNGs...\n")
+
+ggsave(
+  file.path(figures_dir, "FigS1a_phylum_original.png"),
+  plot = p_s1a,
+  width = 6, height = 6, dpi = 300
+)
+
+ggsave(
+  file.path(figures_dir, "FigS1b_class_original.png"),
+  plot = p_s1b,
+  width = 6, height = 6, dpi = 300
+)
+
+ggsave(
+  file.path(figures_dir, "FigS1c_phylum_normalized.png"),
+  plot = p_s1c,
+  width = 6, height = 6, dpi = 300
+)
+
+ggsave(
+  file.path(figures_dir, "FigS1d_class_normalized.png"),
+  plot = p_s1d,
+  width = 6, height = 6, dpi = 300
+)
+
+cat("✅ Individual panels saved (4 PNGs)\n\n")
+
+# Save combined figure (PNG only)
+cat("Saving combined figure...\n")
+
+ggsave(
+  file.path(figures_dir, "FigS1_combined_all_panels.png"),
+  plot = fig_s1_combined,
+  width = 12, height = 12, dpi = 300
+)
+
+cat("✅ Combined figure saved (PNG)\n\n")
+
+# Save abundance data (source data for transparency)
+cat("Saving source data tables...\n")
+
+write_csv(
+  phylum_abundance_orig,
+  file.path(data_dir, "phylum_abundance_original.csv")
+)
+
+write_csv(
+  class_abundance_orig,
+  file.path(data_dir, "class_abundance_original.csv")
+)
+
+write_csv(
+  phylum_abundance_norm,
+  file.path(data_dir, "phylum_abundance_normalized.csv")
+)
+
+write_csv(
+  class_abundance_norm,
+  file.path(data_dir, "class_abundance_normalized.csv")
+)
+
+cat("✅ Source data saved (4 CSV files)\n\n")
+
+cat("========================================================================\n")
+cat("TASK 6 COMPLETED\n")
+cat("  Output directory:", figures_dir, "\n")
+cat("  Data directory:", data_dir, "\n")
+cat("========================================================================\n\n")
+
+
+```
+
+
+
+### 
+
+```{r}
+
+```
+
+
+
+### 
+
+```{r}
+
+```
+
+
+### Task 3: Data Visualization
+
+```{r}
+#| label: data-visualization
+
+# Your visualization code here
+```
+
+
+## Files written
+
+These files have been written to the target directory, `r paste0("data/", params$name)`:
+
+```{r}
+#| label: list-files-target
+#| include: false
+projthis::proj_dir_info(path_target(), tz = "CET")
+```
