@@ -58,16 +58,18 @@ dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
 ```{r}
 #| label: packages
 #| message: false
+
 suppressPackageStartupMessages({
   library(here)
-  library(conflicted)
-  library(tidyverse)
-  library(data.table)
   
-  # TreeSE and mia ecosystem
+  # TreeSE and mia ecosystem 
   library(TreeSummarizedExperiment)
   library(mia)
   library(scater)
+  
+  # Tidyverse 
+  library(tidyverse)
+  library(data.table)
   
   # Visualization
   library(ggplot2)
@@ -81,22 +83,6 @@ suppressPackageStartupMessages({
   library(vegan)
 })
 
-conflicts_prefer(
-  dplyr::filter,
-  dplyr::select,
-  dplyr::mutate,
-  dplyr::summarise,
-  dplyr::slice,
-  dplyr::left_join,
-  dplyr::inner_join,   
-  dplyr::right_join,     
-  dplyr::full_join,
-  dplyr::arrange,        
-  dplyr::distinct,        
-  base::intersect,
-  base::setdiff,
-  .quiet = TRUE
-)
 
 ```
 
@@ -108,34 +94,20 @@ Maintaining your code within this section ensures a clean project structure and 
 
 Below is an example structure to get you started:
 
-### Data Cleaning
+### Load TSE + Define Theme
 
 ```{r}
-#| label: load-tse
+##| label: load-tse
 #| message: true
 
-# Load TSE from previous step
-tse_path <- here::here("data", "01-tse-construction", "tse.rds")
-message("Loading TSE from: ", tse_path)
+# Load TSE
+tse_path <- here("data", "01-tse-construction", "tse.rds")
 stopifnot(file.exists(tse_path))
-
 tse <- readRDS(tse_path)
 
-message("✅ TSE loaded successfully!")
-message("   Dimensions: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
-message("   Assays: ", paste(names(assays(tse)), collapse = ", "))
-message("   Sample sources: ", paste(unique(colData(tse)$sample_source), collapse = ", "))
+message("✅ TSE loaded: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
 
-# Your data cleaning code here
-```
-
-### Define consistent plotting theme
-
-```{r}
-#| label: prep-theme
-#| message: false
-
-# Global color scheme (consistent across all panels)
+# Global color scheme
 sample_colors <- c(
   "BS" = "#E69F00",  # Orange
   "SA" = "#56B4E9",  # Light blue
@@ -144,7 +116,6 @@ sample_colors <- c(
 )
 
 # Consistent theme for all Figure 2 panels
-# Based on original code: Times font, size 20-23, minimal style
 theme_fig2 <- function() {
   theme_minimal(base_size = 22) +
     theme(
@@ -160,25 +131,17 @@ theme_fig2 <- function() {
       plot.margin = margin(15, 20, 10, 10)
     )
 }
-
-message("✅ Color scheme and theme defined")
-
-
-# Your visualization code here
 ```
-
-
-### Figure 2a: Viral Family Composition
-
+### Figure 2a - Viral Family Composition
 ```{r}
 #| label: fig2a-composition
 #| message: true
 #| fig.width: 7
 #| fig.height: 6
 
-message("📊 Creating Figure 2a: Viral Family Composition...")
+message("📊 Figure 2a: Viral Family Composition")
 
-# Extract TPM data and family annotations
+# Extract data
 tpm_mat <- assays(tse)$tpm
 family_data <- rowData(tse)$family
 
@@ -186,34 +149,24 @@ family_data <- rowData(tse)$family
 df_composition <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(-vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
-  left_join(
-    data.frame(
-      vOTU_id = rownames(tse),
-      family = as.character(family_data)
-    ),
+ dplyr::left_join(
+    data.frame(vOTU_id = rownames(tse), family = as.character(family_data)),
     by = "vOTU_id"
   ) %>%
-  left_join(
-    data.frame(
-      sample_id = colnames(tse),
-      sample_group = colData(tse)$sample_group
-    ),
+ dplyr::left_join(
+    data.frame(sample_id = colnames(tse), sample_group = colData(tse)$sample_group),
     by = "sample_id"
-  )
-
-# Clean family names
-df_composition <- df_composition %>%
+  ) %>%
   mutate(
     family = str_remove(family, "^\\[?[Ff]amily\\]?_?"),
     family = if_else(is.na(family) | family == "", "Unclassified virus", family)
   )
 
-# Summarize by sample_group and family
+# Summarize and select top 15 families
 df_summary <- df_composition %>%
   group_by(sample_group, family) %>%
   summarise(TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
 
-# Select Top 15 families
 top15_families <- df_summary %>%
   group_by(family) %>%
   summarise(total_TPM = sum(TPM), .groups = "drop") %>%
@@ -221,18 +174,16 @@ top15_families <- df_summary %>%
   slice_head(n = 15) %>%
   pull(family)
 
-df_summary <- df_summary %>%
-  mutate(family_group = if_else(family %in% top15_families, family, "Others"))
-
 # Calculate relative abundance
 plot_data <- df_summary %>%
+  mutate(family_group = if_else(family %in% top15_families, family, "Others")) %>%
   group_by(sample_group, family_group) %>%
   summarise(TPM = sum(TPM), .groups = "drop") %>%
   group_by(sample_group) %>%
   mutate(rel_abund = TPM / sum(TPM)) %>%
   ungroup()
 
-# Order families by mean abundance
+# Order families
 family_order <- plot_data %>%
   filter(!family_group %in% c("Unclassified virus", "Others")) %>%
   group_by(family_group) %>%
@@ -244,11 +195,7 @@ family_order <- c("Unclassified virus", family_order, "Others")
 plot_data$family_group <- factor(plot_data$family_group, levels = family_order)
 
 # Color scheme
-color_list <- c(
-  "Unclassified virus" = "white",
-  "Others" = "lightgray"
-)
-
+color_list <- c("Unclassified virus" = "white", "Others" = "lightgray")
 other_fams <- setdiff(family_order, c("Unclassified virus", "Others"))
 palette_colors <- scales::hue_pal()(length(other_fams))
 names(palette_colors) <- other_fams
@@ -264,11 +211,7 @@ p_fig2a <- ggplot(plot_data, aes(x = sample_group, y = rel_abund, fill = family_
     breaks = seq(0, 1, 0.2),
     expand = expansion(mult = c(0, 0))
   ) +
-  labs(
-    x = NULL,
-    y = "Relative sequence abundance",
-    fill = "Virus Family"
-  ) +
+  labs(x = NULL, y = "Relative sequence abundance", fill = "Virus Family") +
   theme_fig2() +
   theme(
     axis.title.y = element_text(size = 23, face = "plain"),
@@ -281,18 +224,15 @@ p_fig2a <- ggplot(plot_data, aes(x = sample_group, y = rel_abund, fill = family_
 
 print(p_fig2a)
 
-# Save plot
-ggsave(path_target("Fig2a.pdf"), plot = p_fig2a, width = 7, height = 6, dpi = 300)
+# Save
 ggsave(path_target("Fig2a.png"), plot = p_fig2a, width = 7, height = 6, dpi = 300)
 write_csv(plot_data, path_target("Fig2a_data.csv"))
 
-message("✅ Figure 2a completed and saved!")
-
-# Your visualization code here
+message("✅ Figure 2a completed")
 ```
 
-### Figure 2b: Rarefaction Curves
 
+### Figure 2b - Rarefaction Curves
 ```{r}
 #| label: fig2b-rarefaction
 #| message: true
@@ -300,7 +240,7 @@ message("✅ Figure 2a completed and saved!")
 #| fig.height: 10
 #| warning: false
 
-message("📊 Creating Figure 2b: Rarefaction Curves...")
+message("📊 Figure 2b: Rarefaction Curves")
 
 # Extract count data
 count_mat <- assays(tse)$counts
@@ -338,12 +278,12 @@ calculate_rarefaction <- function(count_mat, n_points = 20, max_depth = 50000) {
     
     for (j in 1:length(depths)) {
       depth <- depths[j]
-      rarefied_sample <- rrarefy(sample_counts, depth)
+      rarefied_sample <- vegan::rrarefy(sample_counts, depth)
       
       observed_richness[j] <- sum(rarefied_sample > 0)
-      chao1_estimate <- estimateR(rarefied_sample)
+      chao1_estimate <- vegan::estimateR(rarefied_sample)
       chao1_values[j] <- chao1_estimate[1]
-      shannon_values[j] <- diversity(rarefied_sample, index = "shannon")
+      shannon_values[j] <- vegan::diversity(rarefied_sample, index = "shannon")
     }
     
     results[[sample_id]] <- data.frame(
@@ -364,7 +304,7 @@ rarefaction_data <- calculate_rarefaction(count_mat, n_points = 20, max_depth = 
 
 # Add sample group info
 rarefaction_data <- rarefaction_data %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
@@ -376,7 +316,7 @@ rarefaction_data <- rarefaction_data %>%
 plot_chao1 <- ggplot(rarefaction_data,
                      aes(x = sequencing_depth, y = chao1_richness,
                          color = sample_group, group = sample_group)) +
-  geom_line(size = 1.2) +
+  geom_line(size = 0.8) +
   geom_point(size = 2, alpha = 0.6) +
   scale_color_manual(values = sample_colors) +
   scale_x_continuous(labels = scales::comma) +
@@ -395,7 +335,7 @@ plot_chao1 <- ggplot(rarefaction_data,
 plot_shannon <- ggplot(rarefaction_data,
                        aes(x = sequencing_depth, y = shannon_diversity,
                            color = sample_group, group = sample_group)) +
-  geom_line(size = 1.2) +
+  geom_line(size = 0.8) +
   geom_point(size = 2, alpha = 0.6) +
   scale_color_manual(values = sample_colors) +
   scale_x_continuous(labels = scales::comma) +
@@ -415,26 +355,23 @@ p_fig2b <- plot_chao1 / plot_shannon
 
 print(p_fig2b)
 
-# Save plots
-ggsave(path_target("Fig2b_combined.pdf"), plot = p_fig2b, width = 8, height = 10, dpi = 300)
+# Save
 ggsave(path_target("Fig2b_combined.png"), plot = p_fig2b, width = 8, height = 10, dpi = 300)
 write_csv(rarefaction_data, path_target("Fig2b_rarefaction_data.csv"))
 
-message("✅ Figure 2b completed and saved!")
-                                                                                                                          
-# Your visualization code here
+message("✅ Figure 2b completed")
+
 ```
 
 
-### Figure 2c: Venn Diagram - Shared Viruses
-
+### Figure 2c - Venn Diagram
 ```{r}
 #| label: fig2c-venn
 #| message: true
 #| fig.width: 10
 #| fig.height: 10
 
-message("📊 Creating Figure 2c: Venn Diagram...")
+message("📊 Figure 2c: Venn Diagram")
 
 # Extract TPM data
 tpm_mat <- assays(tse)$tpm
@@ -454,26 +391,14 @@ SA_viruses <- get_viruses_by_group(tpm_mat, sample_groups, "SA")
 IA_viruses <- get_viruses_by_group(tpm_mat, sample_groups, "IA")
 DA_viruses <- get_viruses_by_group(tpm_mat, sample_groups, "DA")
 
-# Print statistics
-cat("Virus counts by depth:\n")
-cat("  BS:", length(BS_viruses), "\n")
-cat("  SA:", length(SA_viruses), "\n")
-cat("  IA:", length(IA_viruses), "\n")
-cat("  DA:", length(DA_viruses), "\n")
-
 # Calculate shared viruses
 all_four <- Reduce(intersect, list(BS_viruses, SA_viruses, IA_viruses, DA_viruses))
 sa_ia_da_shared <- Reduce(intersect, list(SA_viruses, IA_viruses, DA_viruses))
 
-cat("\nShared viruses:\n")
-cat("  All four depths:", length(all_four), "\n")
-cat("  SA+IA+DA core:", length(sa_ia_da_shared), "\n")
-
 # Create Venn diagram
-venn_colors <- brewer.pal(4, "Set2")
+venn_colors <- RColorBrewer::brewer.pal(4, "Set2")
 
-# Create the Venn diagram object
-venn.plot <- venn.diagram(
+venn.plot <- VennDiagram::venn.diagram(
   x = list(
     BS = BS_viruses,
     SA = SA_viruses,
@@ -481,7 +406,7 @@ venn.plot <- venn.diagram(
     DA = DA_viruses
   ),
   category.names = c("BS", "SA", "IA", "DA"),
-  filename = NULL,  # Don't save directly, we'll draw it first
+  filename = NULL,
   fill = venn_colors,
   alpha = 0.5,
   cex = 2,
@@ -501,17 +426,12 @@ venn.plot <- venn.diagram(
 )
 
 # Display in RStudio Plots pane
-grid.newpage()
-grid.draw(venn.plot)
+grid::grid.newpage()
+grid::grid.draw(venn.plot)
 
 # Save PNG version
 png(path_target("Fig2c_Venn_Diagram.png"), width = 10, height = 10, units = "in", res = 300)
-grid.draw(venn.plot)
-dev.off()
-
-# Save PDF version
-pdf(path_target("Fig2c_Venn_Diagram.pdf"), width = 10, height = 10)
-grid.draw(venn.plot)
+grid::grid.draw(venn.plot)
 dev.off()
 
 # Save virus lists
@@ -522,21 +442,22 @@ write_csv(tibble(vOTU_id = DA_viruses), path_target("Fig2c_DA_viruses.csv"))
 write_csv(tibble(vOTU_id = all_four), path_target("Fig2c_all_four_shared.csv"))
 write_csv(tibble(vOTU_id = sa_ia_da_shared), path_target("Fig2c_SA_IA_DA_core.csv"))
 
-message("✅ Figure 2c completed and saved!")
-
-# Your visualization code here
+message("✅ Figure 2c completed (BS:", length(BS_viruses), 
+        " SA:", length(SA_viruses),
+        " IA:", length(IA_viruses), 
+        " DA:", length(DA_viruses), 
+        " All 4:", length(all_four), ")")
 ```
 
 
-### Figure 2d: Lysogenic/Lytic Ratio
-
+### Figure 2d - Lysogenic/Lytic Ratio
 ```{r}
 #| label: fig2d-lifestyle
 #| message: true
 #| fig.width: 5
 #| fig.height: 6
 
-message("📊 Creating Figure 2d: Lysogenic/Lytic Ratio...")
+message("📊 Figure 2d: Lysogenic/Lytic Ratio")
 
 # Extract lifestyle and TPM data
 lifestyle_data <- rowData(tse)$lifestyle
@@ -546,14 +467,14 @@ tpm_mat <- assays(tse)$tpm
 df_lifestyle <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(-vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       vOTU_id = rownames(tse),
       lifestyle = as.character(lifestyle_data)
     ),
     by = "vOTU_id"
   ) %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
@@ -578,9 +499,6 @@ ratio_data <- lifestyle_abundance %>%
   mutate(lysogenic_lytic_ratio = lysogenic / lytic) %>%
   select(sample_group, lysogenic, lytic, lysogenic_lytic_ratio)
 
-cat("Lysogenic/Lytic Ratio:\n")
-print(ratio_data)
-
 # Create plot
 p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio, 
                                    color = sample_group)) +
@@ -601,48 +519,42 @@ p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio,
 
 print(p_fig2d)
 
-# Save plot
-ggsave(path_target("Fig2d.pdf"), plot = p_fig2d, width = 5, height = 6, dpi = 300)
+# Save
 ggsave(path_target("Fig2d.png"), plot = p_fig2d, width = 5, height = 6, dpi = 300)
 write_csv(ratio_data, path_target("Fig2d_ratio_data.csv"))
 
-message("✅ Figure 2d completed and saved!")
-
-# Your visualization code here
+message("✅ Figure 2d completed")
 ```
 
 
-### Figure 2e: Shannon Diversity Index
 
+### Figure 2e - Shannon Diversity Index
 ```{r}
 #| label: fig2e-shannon
 #| message: true
 #| fig.width: 6
 #| fig.height: 6
 
-message("📊 Creating Figure 2e: Shannon Diversity Index...")
+message("📊 Figure 2e: Shannon Diversity Index")
 
 # Calculate Shannon diversity using vegan
 count_mat <- assays(tse)$counts
 count_mat_t <- t(count_mat)  # vegan expects samples in rows
 
-shannon_diversity <- diversity(count_mat_t, index = "shannon")
+shannon_diversity <- vegan::diversity(count_mat_t, index = "shannon")
 
 # Create data frame
 alpha_diversity <- tibble(
   sample_id = names(shannon_diversity),
   shannon = shannon_diversity
 ) %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
     ),
     by = "sample_id"
   )
-
-cat("Shannon Diversity Index:\n")
-print(alpha_diversity)
 
 # Create plot
 p_fig2e <- ggplot(alpha_diversity, aes(x = sample_group, y = shannon, 
@@ -664,41 +576,37 @@ p_fig2e <- ggplot(alpha_diversity, aes(x = sample_group, y = shannon,
 
 print(p_fig2e)
 
-# Save plot
-ggsave(path_target("Fig2e.pdf"), plot = p_fig2e, width = 6, height = 6, dpi = 300)
+# Save
 ggsave(path_target("Fig2e.png"), plot = p_fig2e, width = 6, height = 6, dpi = 300)
 write_csv(alpha_diversity, path_target("Fig2e_shannon_data.csv"))
 
-message("✅ Figure 2e completed and saved!")
-
+message("✅ Figure 2e completed")
 ```
 
 
-### Figure 2f: Environmental Source and Novel Genus Proportion
 
+### Figure 2f - Environmental Source and Novel Genus Proportion
 ```{r}
 #| label: fig2f-ecosystem-novel
 #| message: true
 #| fig.width: 7.5
 #| fig.height: 5
 
-message("📊 Creating Figure 2f: Environmental Source and Novel Genus Proportion...")
+message("📊 Figure 2f: Environmental Source and Novel Genus Proportion")
 
 # ========== Left Panel: Ecosystem Classification ==========
-cat("Preparing left panel (Ecosystem classification)...\n")
-
 # Extract ecosystem and TPM data
 eco_data <- rowData(tse)$eco_level5
 tpm_mat <- assays(tse)$tpm
 
-# Step 1: Convert TPM matrix to long format
+# Convert TPM matrix to long format
 tpm_long <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(-vOTU_id, names_to = "sample_id", values_to = "TPM")
 
-# Add sample_group info
+# Add sample_group info (使用和其他图完全一样的方式)
 tpm_long <- tpm_long %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
@@ -706,37 +614,48 @@ tpm_long <- tpm_long %>%
     by = "sample_id"
   )
 
-# Step 2: 计算每个 sample_group 的总 TPM（包括所有病毒，不管有没有 eco 注释）
+# Calculate total TPM per sample_group (all viruses) - 分母保持不变
 sample_total_tpm_all <- tpm_long %>%
   group_by(sample_group) %>%
   summarise(total_tpm_all = sum(TPM, na.rm = TRUE), .groups = "drop")
 
-# Step 3: 提取有 eco 注释的病毒
-df_eco <- tpm_long %>%
-  left_join(
-    data.frame(
-      vOTU_id = rownames(tse),
-      eco_level5 = as.character(eco_data)
-    ),
-    by = "vOTU_id"
-  ) %>%
-  filter(!is.na(eco_level5))
+# 处理生态注释：拆分多重注释并计算权重 (关键修改)
+eco_clean <- data.frame(
+  vOTU_id = rownames(tse),
+  eco_level5 = as.character(eco_data),
+  stringsAsFactors = FALSE
+) %>%
+  filter(!is.na(eco_level5) & eco_level5 != "") %>%
+  tidyr::separate_rows(eco_level5, sep = ";") %>%
+  mutate(eco_level5 = trimws(eco_level5)) %>%
+  # 标准化名称（确保和颜色配置匹配）
+  mutate(eco_level5 = dplyr::case_when(
+    eco_level5 == "Host-associated:human" ~ "Host-associated(human)",
+    eco_level5 == "Host-associated:plants" ~ "Host-associated(plants)",
+    eco_level5 == "Host-associated:other" ~ "Host-associated(other)",
+    eco_level5 == "Aquatic:sediment" ~ "Aquatic(sediment)",
+    eco_level5 == "Terrestrial:soil" ~ "Terrestrial(soil)",
+    eco_level5 == "Terrestrial:other" ~ "Terrestrial(other)",
+    TRUE ~ eco_level5
+  )) %>%
+  group_by(vOTU_id) %>%
+  mutate(weight = 1 / n()) %>%  # 如果有2个生态系统，每个权重0.5
+  ungroup()
 
-# Step 4: 计算每个 ecosystem 的 TPM
-abundance_by_eco <- df_eco %>%
+# 合并并应用权重
+df_eco_weighted <- tpm_long %>%
+  dplyr::inner_join(eco_clean, by = "vOTU_id") %>%
+  mutate(weighted_TPM = TPM * weight)  # 应用权重
+
+# Calculate TPM per ecosystem (使用加权后的TPM)
+abundance_by_eco <- df_eco_weighted %>%
   group_by(sample_group, eco_level5) %>%
-  summarise(level5_tpm = sum(TPM, na.rm = TRUE), .groups = "drop")
+  summarise(level5_tpm = sum(weighted_TPM, na.rm = TRUE), .groups = "drop")
 
-# Step 5: 计算相对丰度（关键！用 total_tpm_all 作为分母）
+# Calculate relative abundance (分母用原来的 total_tpm_all)
 abundance_by_eco <- abundance_by_eco %>%
-  left_join(sample_total_tpm_all, by = "sample_group") %>%
+  dplyr::left_join(sample_total_tpm_all, by = "sample_group") %>%
   mutate(relative_abundance = level5_tpm / total_tpm_all)
-
-cat("Relative abundance calculation:\n")
-cat("  BS total:", abundance_by_eco %>% filter(sample_group == "BS") %>% pull(relative_abundance) %>% sum(), "\n")
-cat("  SA total:", abundance_by_eco %>% filter(sample_group == "SA") %>% pull(relative_abundance) %>% sum(), "\n")
-cat("  IA total:", abundance_by_eco %>% filter(sample_group == "IA") %>% pull(relative_abundance) %>% sum(), "\n")
-cat("  DA total:", abundance_by_eco %>% filter(sample_group == "DA") %>% pull(relative_abundance) %>% sum(), "\n\n")
 
 # Define ecosystem order and colors
 level5_order <- c(
@@ -808,11 +727,7 @@ p_left <- ggplot(plot_eco, aes(x = sample_group, y = relative_abundance, fill = 
     plot.margin = unit(c(5, 0, 5, 0), "mm")
   )
 
-cat("✓ Left panel created\n\n")
-
 # ========== Right Panel: Novel Genus Proportion ==========
-cat("Preparing right panel (Novel genus proportion)...\n")
-
 # Extract novel genus data
 novel_data <- rowData(tse)$vc_novel_genus
 
@@ -820,14 +735,14 @@ novel_data <- rowData(tse)$vc_novel_genus
 df_novel <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(-vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       vOTU_id = rownames(tse),
       vc_novel_genus = as.logical(novel_data)
     ),
     by = "vOTU_id"
   ) %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
@@ -846,19 +761,16 @@ novel_ratio <- df_novel %>%
   ) %>%
   mutate(sample_group = fct_rev(factor(sample_group, levels = c("BS", "SA", "IA", "DA"))))
 
-cat("Novel genus proportions:\n")
-print(novel_ratio)
-cat("\n")
-
 # Create right panel (novel proportion)
 p_right <- ggplot(novel_ratio, aes(x = novel_ratio, y = sample_group)) +
   geom_col(fill = "#7F7F7F", alpha = 0.8, width = 0.5) +
   scale_x_continuous(
-    labels = function(x) sprintf("%.1f", x),
-    limits = c(0, max(novel_ratio$novel_ratio) * 1.1),
-    expand = expansion(mult = c(0, 0))
+    limits = c(0, 0.8),  
+    breaks = seq(0, 0.8, 0.2),  
+    expand = c(0, 0)  
   ) +
   scale_y_discrete(limits = levels(novel_ratio$sample_group)) +
+  coord_cartesian(clip = "off") +
   labs(
     x = "Proportion of Novel Viruses",
     y = NULL,
@@ -876,10 +788,8 @@ p_right <- ggplot(novel_ratio, aes(x = novel_ratio, y = sample_group)) +
     axis.title.x = element_text(size = 15, face = "plain", hjust = 0.5),
     plot.title = element_text(hjust = 0.5, size = 16, face = "plain"),
     panel.grid = element_blank(),
-    plot.margin = unit(c(5, 0, 5, 0), "mm")
+    plot.margin = unit(c(5, 8, 5, 0), "mm")
   )
-
-cat("✓ Right panel created\n\n")
 
 # ========== Y-axis Labels (Middle) ==========
 y_axis_labels <- data.frame(
@@ -887,44 +797,38 @@ y_axis_labels <- data.frame(
   y_pos = c(4, 3, 2, 1)
 )
 
-p_y_axis <- ggplot(y_axis_labels, aes(x = 0.5, y = y_pos, label = label)) +
+p_yaxis <- ggplot(y_axis_labels, aes(x = 0.5, y = y_pos, label = label)) +
   geom_text(size = 5, hjust = 0.5, family = "Times") +
   scale_y_continuous(limits = c(0.5, 4.5)) +
   scale_x_continuous(limits = c(0, 1)) +
   theme_void() +
   theme(plot.margin = unit(c(0, 0, 0, 0), "mm"))
 
-# ========== Combine Panels ==========
-p_fig2f <- p_left + p_y_axis + p_right +
-  plot_layout(widths = c(2.0, 0.2, 1.5))
+# Combine Panels
+p_fig2f <- p_left + p_yaxis + p_right + plot_layout(widths = c(2.0, 0.2, 1.5))
 
 print(p_fig2f)
 
-# Save plots
-ggsave(path_target("Fig2f_combined.pdf"), plot = p_fig2f, width = 7.5, height = 5, dpi = 300)
-ggsave(path_target("Fig2f_combined.png"), plot = p_fig2f, width = 7.5, height = 5, dpi = 300)
-ggsave(path_target("Fig2f_left_ecosystem.png"), plot = p_left, width = 4, height = 5, dpi = 300)
-ggsave(path_target("Fig2f_right_novel.png"), plot = p_right, width = 3, height = 5, dpi = 300)
-
-# Save data
+# Save
+ggsave(path_target("Fig2f_combined.png"), plot = p_fig2f, width = 7.8, height = 5, dpi = 300, bg = "white")
 write_csv(plot_eco, path_target("Fig2f_ecosystem_data.csv"))
 write_csv(novel_ratio, path_target("Fig2f_novel_ratio_data.csv"))
 
-message("✅ Figure 2f completed and saved!")
-
+message("✅ Figure 2f completed")
 ```
 
 
 
-###  Figure 2g: Predicted Host Bacteria (Phylum Level)
 
+
+### Figure 2g - Host Phylum Prediction
 ```{r}
 #| label: fig2g-host
 #| message: true
 #| fig.width: 6.7
 #| fig.height: 9
 
-message("📊 Creating Figure 2g: Predicted Host Bacteria...")
+message("📊 Figure 2g: Predicted Host Bacteria (Phylum Level)")
 
 # Extract host prediction data from metadata
 host_genome_edges <- metadata(tse)$host_genome_edges
@@ -933,21 +837,21 @@ host_genome_edges <- metadata(tse)$host_genome_edges
 host_filtered <- host_genome_edges %>%
   filter(Confidence.score >= 80) %>%
   mutate(
-    Phylum = str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
+    Phylum = stringr::str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
     Phylum = if_else(is.na(Phylum), "Unclassified", Phylum)
   )
 
 cat("High-confidence host predictions:", nrow(host_filtered), "rows\n")
-cat("Unique vOTUs:", n_distinct(host_filtered$vOTU_id), "\n")
-cat("Unique phyla:", n_distinct(host_filtered$Phylum), "\n")
+cat("Unique vOTUs:", dplyr::n_distinct(host_filtered$vOTU_id), "\n")
+cat("Unique phyla:", dplyr::n_distinct(host_filtered$Phylum), "\n")
 
 # Handle multi-host viruses (weight by 1/n_hosts)
 host_count <- host_filtered %>%
   group_by(vOTU_id) %>%
-  summarise(n_hosts = n_distinct(Phylum), .groups = "drop")
+  summarise(n_hosts = dplyr::n_distinct(Phylum), .groups = "drop")
 
 host_weighted <- host_filtered %>%
-  left_join(host_count, by = "vOTU_id") %>%
+  dplyr::left_join(host_count, by = "vOTU_id") %>%
   mutate(weight = 1 / n_hosts) %>%
   select(vOTU_id, Phylum, weight) %>%
   distinct()
@@ -961,7 +865,7 @@ tpm_long <- as.data.frame(tpm_mat) %>%
   filter(TPM > 0)
 
 host_abundance <- tpm_long %>%
-  inner_join(host_weighted, by = "vOTU_id") %>%
+  dplyr::inner_join(host_weighted, by = "vOTU_id") %>%
   mutate(weighted_TPM = TPM * weight)
 
 # Calculate phylum-level abundance
@@ -976,13 +880,13 @@ sample_total_tpm <- tpm_long %>%
 
 # Calculate relative abundance
 phylum_rel_abundance <- phylum_abundance %>%
-  left_join(sample_total_tpm, by = "sample_id") %>%
+  dplyr::left_join(sample_total_tpm, by = "sample_id") %>%
   mutate(rel_abundance = phylum_TPM / total_TPM) %>%
   select(sample_id, Phylum, rel_abundance)
 
 # Add sample group labels
 phylum_rel_abundance <- phylum_rel_abundance %>%
-  left_join(
+  dplyr::left_join(
     data.frame(
       sample_id = colnames(tse),
       sample_group = colData(tse)$sample_group
@@ -1055,7 +959,6 @@ p_fig2g <- ggplot(plot_data, aes(x = rel_abundance, y = Phylum)) +
 print(p_fig2g)
 
 # Save plot
-ggsave(path_target("Fig2g.pdf"), plot = p_fig2g, width = 6.7, height = 9, dpi = 300)
 ggsave(path_target("Fig2g.png"), plot = p_fig2g, width = 6.7, height = 9, dpi = 300)
 write_csv(plot_data, path_target("Fig2g_host_phylum_data.csv"))
 
@@ -1068,8 +971,6 @@ table_s1 <- phylum_rel_abundance %>%
 
 write_csv(table_s1, path_target("Fig2g_Table_S1_host_phylum_abundance.csv"))
 
-message("✅ Figure 2g completed and saved!")
-
-# Your visualization code here
+message("✅ Figure 2g completed")
 ```
 

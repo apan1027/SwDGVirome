@@ -30,7 +30,8 @@ renv.lock
 # 排除R包文件
 /man/
 /NAMESPACE/
-/R/
+# /R/
+
 
 # 排除日志
 *.log

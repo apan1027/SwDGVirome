@@ -79,114 +79,67 @@ Below is an example structure to get you started:
 
 ```{r}
 #| label: load-data
-#| message: true
 
-message("========================================================================")
-message("Loading TSE and extracting metadata...")
-message("========================================================================\n")
-
-# Load TSE
 tse <- readRDS(path_source("01-tse-construction", "tse.rds"))
-message("✅ TSE loaded: ", ncol(tse), " samples, ", nrow(tse), " vOTUs\n")
 
-# Extract annotation data from TSE metadata
 contig_anno <- metadata(tse)$contig_annotation
 imgvr <- metadata(tse)$imgvr_source
-stopifnot(!is.null(contig_anno), !is.null(imgvr))
 
-message("✅ contig_annotation extracted: ", nrow(contig_anno), " contigs")
-message("✅ imgvr_source extracted: ", nrow(imgvr), " entries\n")
-
+message("TSE loaded: ", ncol(tse), " samples, ", nrow(tse), " vOTUs")
 ```
 
-### Task 2: Figure S5a: Rare Viral Taxa (Family Level Bubble Plot)
+### Task 2: Figure S5a - Bubble Plot (Rare)
 
 ```{r}
 #| label: figs5a-bubble
-#| message: true
 #| fig.width: 8.5
 #| fig.height: 6
 
-message("========================================================================")
-message("Figure S5a: Rare Viral Taxa Bubble Plot (Family Level)")
-message("Criterion: Relative Abundance < 0.1% per sample group")
-message("========================================================================\n")
-
-# ============================================================================
-# STEP 1: Extract data from TSE
-# ============================================================================
-message("📊 Extracting data from TSE...")
-
-# Extract TPM assay
 tpm_mat <- assays(tse)$tpm
 
-# Extract family from rowData
 family_df <- data.frame(
   vOTU_id = rownames(tse),
   family = as.character(rowData(tse)$family),
   stringsAsFactors = FALSE
 )
 
-# Extract sample_group from colData
 sample_df <- data.frame(
   sample_id = colnames(tse),
-  sample_source1 = as.character(colData(tse)$sample_group),
+  sample_group = as.character(colData(tse)$sample_group),
   stringsAsFactors = FALSE
 )
 
-message("✅ Data extracted from TSE")
-cat("Samples:", nrow(sample_df), "\n")
-cat("Sample groups:", paste(unique(sample_df$sample_source1), collapse = ", "), "\n\n")
-
-# ============================================================================
-# STEP 2: Identify RARE vOTUs (< 0.1% and > 0, per sample_group)
-# ============================================================================
-message("🔍 Calculating relative abundance (per sample_group)...")
-
-# Convert to long format
 abundance_long <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "tpm") %>%
   dplyr::left_join(sample_df, by = "sample_id") %>%
   dplyr::left_join(family_df, by = "vOTU_id")
 
-# Clean family names
 abundance_long <- abundance_long %>%
   mutate(
     family = str_remove(family, regex("^(\\[?Family\\]?_?|f__|family_)", ignore_case = TRUE)),
     family = str_trim(family),
-    family = ifelse(is.na(family) | family == "", "Unclassified virus", family)
+    family = if_else(is.na(family) | family == "", "Unclassified virus", family)
   )
 
-# Calculate total TPM per sample_group
 sample_totals <- abundance_long %>%
-  group_by(sample_source1) %>%
+  group_by(sample_group) %>%
   summarise(total_TPM = sum(tpm, na.rm = TRUE), .groups = "drop")
 
-# Calculate relative abundance (decimal: 0-1)
 abundance_rel <- abundance_long %>%
-  dplyr::left_join(sample_totals, by = "sample_source1") %>%
+  dplyr::left_join(sample_totals, by = "sample_group") %>%
   mutate(rel_abundance = tpm / total_TPM)
 
-# *** Identify RARE vOTUs (< 0.1% = < 0.001 AND > 0 per sample_group) ***
+# Identify RARE vOTUs (< 0.1% = < 0.001)
 rare_vOTUs <- abundance_rel %>%
-  filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
-  select(sample_source1, vOTU_id, family, rel_abundance) %>%
-  arrange(sample_source1, desc(rel_abundance))
+  dplyr::filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
+  dplyr::select(sample_group, vOTU_id, family, rel_abundance) %>%
+  arrange(sample_group, desc(rel_abundance))
 
-message(sprintf("✅ Identified %d rare vOTU-sample pairs\n", nrow(rare_vOTUs)))
-
-# ============================================================================
-# STEP 3: Prepare plot data
-# ============================================================================
-message("📊 Preparing plot data...")
-
-# Sum abundance per family per sample_group
 df_sum <- rare_vOTUs %>%
-  group_by(family, sample_source1) %>%
+  group_by(family, sample_group) %>%
   summarise(total_abund = sum(rel_abundance), .groups = "drop")
 
-# Keep top 14 families
 top_families <- df_sum %>%
   group_by(family) %>%
   summarise(mean_abund = mean(total_abund), .groups = "drop") %>%
@@ -195,20 +148,13 @@ top_families <- df_sum %>%
   pull(family)
 
 df_sum <- df_sum %>%
-  filter(family %in% top_families) %>%
+  dplyr::filter(family %in% top_families) %>%
   mutate(
-    sample_source1 = factor(sample_source1, levels = c("BS", "SA", "IA", "DA")),
-    family = fct_relevel(family, "Unclassified virus", after = 0)
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA")),
+    family = forcats::fct_relevel(family, "Unclassified virus", after = 0)
   )
 
-message("✅ Plot data ready\n")
-
-# ============================================================================
-# STEP 4: Create bubble plot
-# ============================================================================
-message("🎨 Creating bubble plot...")
-
-p_bubble <- ggplot(df_sum, aes(x = total_abund, y = fct_rev(factor(family)), color = sample_source1)) +
+p_bubble <- ggplot(df_sum, aes(x = total_abund, y = forcats::fct_rev(factor(family)), color = sample_group)) +
   geom_point(aes(size = total_abund), alpha = 0.85) +
   scale_size_continuous(
     range = c(2, 10),
@@ -228,99 +174,65 @@ p_bubble <- ggplot(df_sum, aes(x = total_abund, y = fct_rev(factor(family)), col
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
-    axis.line.x = element_line(linewidth = 0.8, color = "black"),
-    axis.line.y = element_line(linewidth = 0.8, color = "black"),
-    axis.ticks.x = element_line(linewidth = 0.5, color = "black"),
-    axis.ticks.y = element_line(linewidth = 0.5, color = "black"),
+    axis.line = element_line(linewidth = 0.8, color = "black"),
+    axis.ticks = element_line(linewidth = 0.5, color = "black"),
     panel.grid = element_blank(),
-    axis.text.y = element_text(face = "italic", size = 18, family = "Times", color = "black"),
-    axis.text.x = element_text(size = 18, family = "Times", color = "black"),
-    axis.title.x = element_text(size = 20, face = "plain", family = "Times", color = "black"),
-    legend.title = element_text(size = 12, face = "bold", family = "Times"),
-    legend.text = element_text(size = 11, family = "Times"),
-    legend.background = element_blank(),
-    legend.key = element_blank(),
+    axis.text.y = element_text(face = "italic", size = 18, color = "black"),
+    axis.text.x = element_text(size = 18, color = "black"),
+    axis.title.x = element_text(size = 20, face = "plain", color = "black"),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11),
     plot.margin = margin(10, 10, 10, 10)
   )
 
 print(p_bubble)
-
-# Save
-ggsave(path_target("FigS5a_bubble.pdf"), plot = p_bubble, width = 8.5, height = 6, dpi = 300)
-ggsave(path_target("FigS5a_bubble.png"), plot = p_bubble, width = 8.5, height = 6, dpi = 300)
+ggsave(path_target("FigS5a_bubble.png"), p_bubble, width = 8.5, height = 6, dpi = 300)
 write_csv(df_sum, path_target("FigS5a_bubble_data.csv"))
 write_csv(rare_vOTUs, path_target("FigS5a_rare_full.csv"))
 
-message("✅ Figure S5a completed!\n")
-
+message("FigS5a completed: ", nrow(rare_vOTUs), " rare vOTU-sample pairs")
 ```
 
-### Task 3: Figure S5b: Rare Viral Groups - Ecosystem Distribution
+### Task 3: Figure S5b - Ecosystem Distribution 
 ```{r}
 #| label: figs5b-ecosystem
-#| message: true
 #| fig.width: 8
 #| fig.height: 6
 
-message("========================================================================")
-message("Figure S5b: Rare Viral Groups - Ecosystem Distribution")
-message("Criterion: Relative Abundance < 0.1% per sample group")
-message("Denominator: Total TPM of ALL viruses in each sample group")
-message("========================================================================\n")
-
-# ============================================================================
-# STEP 1: Extract TPM and calculate relative abundance (per sample_group)
-# ============================================================================
-message("📊 Calculating relative abundance...")
-
-# Extract TPM matrix from TSE
 tpm_mat <- assays(tse)$tpm
 
-# Create sample mapping using TSE colData
 sample_df <- data.frame(
   sample_id = colnames(tse),
   sample_group = as.character(colData(tse)$sample_group),
   stringsAsFactors = FALSE
 )
 
-# Convert to long format
 abundance_long <- as.data.frame(tpm_mat) %>%
   rownames_to_column("vOTU_id") %>%
   pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
   dplyr::left_join(sample_df, by = "sample_id")
 
-# Calculate total TPM per sample_group (all viruses)
 sample_totals <- abundance_long %>%
   group_by(sample_group) %>%
   summarise(total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
 
-# Calculate relative abundance
 abundance_rel <- abundance_long %>%
   dplyr::left_join(sample_totals, by = "sample_group") %>%
   mutate(rel_abundance = TPM / total_TPM)
 
-# Identify RARE vOTUs (< 0.1% and > 0)
+# Identify RARE vOTUs (< 0.1%)
 rare_votus_list <- abundance_rel %>%
-  filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
+  dplyr::filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
   pull(vOTU_id) %>%
   unique()
 
-message(sprintf("✅ Identified %d rare vOTUs (< 0.1%%)\n", length(rare_votus_list)))
-
-# Filter rare vOTUs
 abundance_rare <- abundance_rel %>%
-  filter(vOTU_id %in% rare_votus_list)
+  dplyr::filter(vOTU_id %in% rare_votus_list)
 
-# ============================================================================
-# STEP 2: Extract ecosystem classification (from TSE metadata)
-# ============================================================================
-message("🌍 Extracting ecosystem classification...")
-
-# Function to extract Level5 (exactly as old code)
+# Extract ecosystem classification
 extract_level5_position5 <- function(eco_string) {
   if (is.na(eco_string) || eco_string == "") return(NA)
-  parts <- strsplit(as.character(eco_string), ";")
-  parts <- parts[[1]]
+  parts <- strsplit(as.character(eco_string), ";")[[1]]
   parts <- trimws(parts)
   if (length(parts) >= 5 && parts[5] != "") {
     return(parts[5])
@@ -329,77 +241,55 @@ extract_level5_position5 <- function(eco_string) {
   }
 }
 
-# Extract Level5 from imgvr (now from TSE metadata)
 imgvr_eco <- imgvr %>%
-  select(contig_id, eco_class = `Ecosystem classification`) %>%
+  dplyr::select(contig_id, eco_class = `Ecosystem classification`) %>%
   mutate(level5 = sapply(eco_class, extract_level5_position5)) %>%
-  filter(!is.na(level5)) %>%
-  select(contig_id, level5) %>%
-  distinct()
+  dplyr::filter(!is.na(level5)) %>%
+  dplyr::select(contig_id, level5) %>%
+  dplyr::distinct()
 
-message("✅ Ecosystem data extracted\n")
-
-
-# ============================================================================
-# STEP 3: Link ecosystem to vOTUs (using ALL contigs from metadata)
-# ============================================================================
-message("🔗 Linking ecosystem classification (using ALL contigs)...")
-
-# Use ALL contigs (from TSE metadata)
+# Link ecosystem to vOTUs (with weighting)
 data_with_eco <- contig_anno %>%
   dplyr::left_join(imgvr_eco, by = "contig_id") %>%
-  filter(!is.na(level5))
+  dplyr::filter(!is.na(level5))
 
-# Combine with abundance data (fix many-to-many warning)
+# Calculate weights for vOTUs with multiple ecosystems
+votu_eco_count <- data_with_eco %>%
+  dplyr::select(vOTU_id, level5) %>%
+  dplyr::distinct() %>%
+  group_by(vOTU_id) %>%
+  summarise(n_ecosystems = dplyr::n_distinct(level5), .groups = "drop")
+
+data_with_eco_weighted <- data_with_eco %>%
+  dplyr::select(vOTU_id, level5) %>%
+  dplyr::distinct() %>%
+  dplyr::left_join(votu_eco_count, by = "vOTU_id") %>%
+  mutate(weight = 1 / n_ecosystems)
+
+# Join with abundance (many-to-many expected)
 abundance_rare_eco <- abundance_rare %>%
-  filter(vOTU_id %in% data_with_eco$vOTU_id) %>%
-  dplyr::left_join(
-    data_with_eco %>% select(vOTU_id, level5) %>% distinct(), 
-    by = "vOTU_id",
-    relationship = "many-to-many"  # ← 添加这个来消除warning
-  )
+  dplyr::inner_join(data_with_eco_weighted, by = "vOTU_id", relationship = "many-to-many") %>%
+  mutate(weighted_TPM = TPM * weight)
 
-message("✅ Ecosystem data linked\n")
-
-# ============================================================================
-# STEP 4: Calculate relative abundance per ecosystem
-# ============================================================================
-message("📊 Calculating ecosystem abundance...")
-
-# 注意：改成 sample_group
+# Calculate ecosystem abundance (using weighted TPM)
 abundance_by_eco_rare <- abundance_rare_eco %>%
-  filter(!is.na(level5)) %>%
-  group_by(sample_group, level5) %>%  # ← 改成 sample_group
+  group_by(sample_group, level5) %>%
   summarise(
-    level5_tpm = sum(TPM, na.rm = TRUE),
-    n_viruses = n_distinct(vOTU_id),
+    level5_tpm = sum(weighted_TPM, na.rm = TRUE),
+    n_viruses = dplyr::n_distinct(vOTU_id),
     .groups = "drop"
   )
 
-# Use total TPM of ALL viruses as denominator
 abundance_by_eco_rare <- abundance_by_eco_rare %>%
-  dplyr::left_join(sample_totals, by = "sample_group") %>%  # ← 改成 sample_group 和 sample_totals
-  mutate(relative_abundance = level5_tpm / total_TPM) %>%  # ← 改成 total_TPM
-  select(sample_group, level5, level5_tpm, n_viruses, relative_abundance, total_TPM)
+  dplyr::left_join(sample_totals, by = "sample_group") %>%
+  mutate(relative_abundance = level5_tpm / total_TPM) %>%
+  dplyr::select(sample_group, level5, level5_tpm, n_viruses, relative_abundance, total_TPM)
 
-message(sprintf("✅ Ecosystem data processed (%d rare vOTUs with ecosystem annotation)\n",
-                length(unique(abundance_rare_eco$vOTU_id[!is.na(abundance_rare_eco$level5)]))))
-
-# ============================================================================
-# STEP 5: Define Level5 order and colors (exactly as old code)
-# ============================================================================
+# Define Level5 order and colors
 level5_order <- c(
-  "Host-associated(human)",
-  "Host-associated(plants)",
-  "Host-associated(other)",
-  "Marine",
-  "Freshwater",
-  "Aquatic(sediment)",
-  "Non-marine_Saline_and_Alkaline",
-  "Terrestrial(soil)",
-  "Terrestrial(other)",
-  "Thermal_springs",
-  "Engineered"
+  "Host-associated(human)", "Host-associated(plants)", "Host-associated(other)",
+  "Marine", "Freshwater", "Aquatic(sediment)", "Non-marine_Saline_and_Alkaline",
+  "Terrestrial(soil)", "Terrestrial(other)", "Thermal_springs", "Engineered"
 )
 
 host_colors <- c("#F9E2C8", "#F4CCAC", "#C4714F")
@@ -409,20 +299,16 @@ special_colors <- c("#E8E4D8", "#5D4037")
 all_colors <- c(host_colors, water_colors, terrestrial_colors, special_colors)
 color_map <- setNames(all_colors, level5_order)
 
-# ============================================================================
-# STEP 6: Prepare plot data
-# ============================================================================
+# Prepare plot data
 plot_data <- abundance_by_eco_rare %>%
-  mutate(sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))) %>%  # ← 改成 sample_group
-  mutate(level5 = factor(level5, levels = level5_order)) %>%
+  mutate(
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA")),
+    level5 = factor(level5, levels = level5_order)
+  ) %>%
   arrange(sample_group, desc(relative_abundance))
 
-# ============================================================================
-# STEP 7: Create vertical bar chart (exactly matching old code)
-# ============================================================================
-message("🎨 Creating vertical bar chart...")
-
-fig <- ggplot(plot_data, aes(x = sample_group, y = relative_abundance, fill = level5)) +  # ← 改成 sample_group
+# Create vertical bar chart
+fig <- ggplot(plot_data, aes(x = sample_group, y = relative_abundance, fill = level5)) +
   geom_col(position = "stack", width = 0.6, color = "white", linewidth = 0.2) +
   scale_y_continuous(
     limits = c(0, 1),
@@ -430,28 +316,23 @@ fig <- ggplot(plot_data, aes(x = sample_group, y = relative_abundance, fill = le
     labels = function(x) sprintf("%.1f", x),
     expand = c(0, 0)
   ) +
-  scale_x_discrete() +
   scale_fill_manual(
     values = color_map,
     name = "Level 5 Ecosystem",
     breaks = level5_order
   ) +
-  labs(
-    x = NULL,
-    y = "Relative Abundance"
-  ) +
+  labs(x = NULL, y = "Relative Abundance") +
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
-    axis.text.x = element_text(color = "black", size = 18, family = "Times"),
-    axis.text.y = element_text(color = "black", size = 18, family = "Times"),
-    axis.title.y = element_text(size = 20, face = "plain", family = "Times"),
+    axis.text = element_text(color = "black", size = 18),
+    axis.title.y = element_text(size = 20, face = "plain"),
     axis.title.x = element_blank(),
     axis.line = element_line(color = "black", linewidth = 1),
     axis.ticks = element_line(color = "black", linewidth = 0.8),
     legend.position = "right",
-    legend.text = element_text(size = 11, family = "Times"),
-    legend.title = element_text(size = 12, face = "bold", family = "Times"),
+    legend.text = element_text(size = 11),
+    legend.title = element_text(size = 12, face = "bold"),
     legend.key.size = unit(0.5, "cm"),
     panel.grid = element_blank(),
     panel.background = element_rect(fill = "white", color = NA),
@@ -460,77 +341,37 @@ fig <- ggplot(plot_data, aes(x = sample_group, y = relative_abundance, fill = le
   )
 
 print(fig)
-
-# Save plot
-ggsave(path_target("FigS5b_ecosystem.pdf"), plot = fig, width = 8, height = 6, dpi = 300)
-ggsave(path_target("FigS5b_ecosystem.png"), plot = fig, width = 8, height = 6, dpi = 300)
-
-# Save data
+ggsave(path_target("FigS5b_ecosystem.png"), fig, width = 8, height = 6, dpi = 300)
 write_csv(abundance_by_eco_rare, path_target("FigS5b_ecosystem_data.csv"))
 
-message("✅ Figure S5b completed and saved!\n")
-
+message("FigS5b completed: ", length(rare_votus_list), " rare vOTUs")
 
 ```
 
 
-### Figure S5c: Predicted Bacterial Host of Rare Viruses (Heatmap)
+### Task 4: Figure S5c - Host Heatmap 
 
 ```{r}
 #| label: figs5c-host-heatmap
-#| message: true
 #| fig.width: 8
 #| fig.height: 10
 
-message("========================================================================")
-message("Figure S5c: Predicted Bacterial Host of Rare Viruses (Heatmap)")
-message("Confidence threshold: ≥75")
-message("========================================================================\n")
+host_genome <- metadata(tse)$host_genome_edges
 
-# ============================================================================
-# STEP 1: Load host prediction data from TSE metadata
-# ============================================================================
-message("📥 Loading host prediction data from TSE metadata...")
-
-# 正确的 metadata key（有下划线）
-host_genome <- metadata(tse)$host_genome_edges  # ← 注意是 host_genome_edges
-
-stopifnot(!is.null(host_genome))
-
-message("✅ host_genome loaded: ", nrow(host_genome), " predictions")
-message("   Columns: ", paste(colnames(host_genome), collapse = ", "), "\n")
-
-
-# ============================================================================
-# STEP 2: Filter high-confidence host predictions (≥75)
-# ============================================================================
 CONFIDENCE_THRESHOLD <- 80
 
-message(sprintf("🔍 Filtering host predictions (confidence ≥ %d)...\n", CONFIDENCE_THRESHOLD))
-
 host_filtered <- host_genome %>%
-  filter(Confidence.score >= CONFIDENCE_THRESHOLD) %>%
+  dplyr::filter(Confidence.score >= CONFIDENCE_THRESHOLD) %>%
   mutate(
     Phylum = str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
     Phylum = if_else(is.na(Phylum), "Unclassified", Phylum)
   )
 
-message(sprintf("✅ High-confidence predictions: %d rows", nrow(host_filtered)))
-message(sprintf("✅ Unique phyla: %d\n", n_distinct(host_filtered$Phylum)))
-
-# ============================================================================
-# STEP 3: Use rare vOTU list from Fig S5a/S5b (already calculated)
-# ============================================================================
-message("📋 Using rare vOTU list from previous analysis...")
-
-# rare_votus_list should already exist from Fig S5a/S5b
-# If not, recalculate (fallback)
+# Use rare vOTU list (from S5a/S5b)
 if (!exists("rare_votus_list")) {
-  message("⚠️ Recalculating rare vOTUs...")
-  
-  sample_map <- data.frame(
-    sample_id = c("FCH3CGLCCXYL2DAA", "FCH3CGLCCXYL2EAA", "FCH3CGLCCXYL4FAA", "TARATASF"),
-    sample_short = c("SA", "IA", "BS", "DA"),
+  sample_df <- data.frame(
+    sample_id = colnames(tse),
+    sample_group = as.character(colData(tse)$sample_group),
     stringsAsFactors = FALSE
   )
   
@@ -539,320 +380,101 @@ if (!exists("rare_votus_list")) {
   abundance_long <- as.data.frame(tpm_mat) %>%
     rownames_to_column("vOTU_id") %>%
     pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
-    dplyr::left_join(sample_map, by = "sample_id")
+    dplyr::left_join(sample_df, by = "sample_id")
   
-  sample_total_tpm_all <- abundance_long %>%
-    group_by(sample_short) %>%
-    summarise(total_tpm_all = sum(TPM, na.rm = TRUE), .groups = "drop")
+  sample_totals <- abundance_long %>%
+    group_by(sample_group) %>%
+    summarise(total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
   
   abundance_rel <- abundance_long %>%
-    dplyr::left_join(sample_total_tpm_all, by = "sample_short") %>%
-    mutate(relative_abundance = TPM / total_tpm_all)
+    dplyr::left_join(sample_totals, by = "sample_group") %>%
+    mutate(rel_abundance = TPM / total_TPM)
   
   rare_votus_list <- abundance_rel %>%
-    filter(relative_abundance < 0.001 & relative_abundance > 0) %>%
+    dplyr::filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
     pull(vOTU_id) %>%
     unique()
 }
 
-message(sprintf("✅ Rare vOTUs: %d\n", length(rare_votus_list)))
-
-# ============================================================================
-# STEP 4: Filter host predictions for rare vOTUs
-# ============================================================================
-message("🔗 Filtering host predictions for rare vOTUs...")
-
+# Filter host predictions for rare vOTUs only
 host_rare <- host_filtered %>%
-  filter(vOTU_id %in% rare_votus_list)
-
-message(sprintf("✅ Rare vOTUs with host predictions: %d\n", n_distinct(host_rare$vOTU_id)))
+  dplyr::filter(vOTU_id %in% rare_votus_list)
 
 # ============================================================================
-# STEP 5: Prepare abundance data for rare vOTUs
+# NEW: Calculate weights for vOTUs with multiple Phylum predictions
 # ============================================================================
-message("📊 Preparing abundance data...")
 
-# Sample mapping (exactly as old code)
-sample_map <- data.frame(
-  sample_id = c("FCH3CGLCCXYL2DAA", "FCH3CGLCCXYL2EAA", "FCH3CGLCCXYL4FAA", "TARATASF"),
-  sample_source1 = c("SA", "IA", "BS", "DA"),
+# Step 1: Count how many different Phyla each vOTU has
+host_count <- host_rare %>%
+  dplyr::select(vOTU_id, Phylum) %>%
+  dplyr::distinct() %>%
+  group_by(vOTU_id) %>%
+  summarise(n_hosts = dplyr::n_distinct(Phylum), .groups = "drop")
+
+# Step 2: Calculate weights (1 / n_hosts)
+host_weighted <- host_rare %>%
+  dplyr::select(vOTU_id, Phylum) %>%
+  dplyr::distinct() %>%
+  dplyr::left_join(host_count, by = "vOTU_id") %>%
+  mutate(weight = 1 / n_hosts)
+
+# Diagnostic: Check multi-Phylum vOTUs
+multi_phylum_votus <- host_count %>% dplyr::filter(n_hosts > 1)
+if (nrow(multi_phylum_votus) > 0) {
+  message(sprintf("  %d rare vOTUs have predictions for multiple Phyla (weighted)", nrow(multi_phylum_votus)))
+} else {
+  message("  All rare vOTUs have predictions for only one Phylum")
+}
+
+# ============================================================================
+# Prepare abundance data
+# ============================================================================
+
+sample_df <- data.frame(
+  sample_id = colnames(tse),
+  sample_group = as.character(colData(tse)$sample_group),
   stringsAsFactors = FALSE
 )
 
-# Extract TPM for rare vOTUs
-tpm_mat <- assays(tse)$tpm
-
-tpm_rare <- as.data.frame(tpm_mat) %>%
+tpm_rare <- as.data.frame(assays(tse)$tpm) %>%
   rownames_to_column("vOTU_id") %>%
-  filter(vOTU_id %in% rare_votus_list) %>%
+  dplyr::filter(vOTU_id %in% rare_votus_list) %>%
   pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "tpm") %>%
-  dplyr::left_join(sample_map, by = "sample_id") %>%
-  filter(!is.na(sample_source1))
-
-message("✅ Abundance data prepared\n")
+  dplyr::left_join(sample_df, by = "sample_id") %>%
+  dplyr::filter(!is.na(sample_group))
 
 # ============================================================================
-# STEP 6: Create heatmap data (presence/absence by Phylum)
+# Create heatmap data (using WEIGHTED vOTU counts)
 # ============================================================================
-message("🗂️ Creating heatmap data...")
 
-# Combine host predictions with abundance (many-to-many expected)
-host_abundance <- host_rare %>%
+# Join with weighted host predictions
+host_abundance <- host_weighted %>%  # ← Changed: use host_weighted
   dplyr::left_join(tpm_rare, by = "vOTU_id", relationship = "many-to-many")
 
-# Calculate presence/absence per sample and Phylum
+# Calculate weighted vOTU counts per Phylum
 heatmap_data <- host_abundance %>%
-  filter(tpm > 0) %>%
-  group_by(sample_source1, Phylum) %>%
+  dplyr::filter(tpm > 0) %>%
+  group_by(sample_group, Phylum) %>%
   summarise(
-    n_vOTUs = n_distinct(vOTU_id),
-    presence = 1,
+    n_vOTUs_weighted = sum(weight),  # ← Changed: use weighted sum
+    presence = if_else(sum(weight) > 0, 1, 0),  # ← Changed: based on weighted sum
     .groups = "drop"
   )
 
-# Complete the grid (all samples × all phyla)
+# Complete the grid (only rare vOTUs' Phyla)
 all_samples <- c("BS", "SA", "IA", "DA")
-all_phyla <- unique(host_filtered$Phylum)
+all_phyla <- unique(host_weighted$Phylum)  # ← Changed: use host_weighted
 
 heatmap_data_complete <- expand.grid(
-  sample_source1 = all_samples,
+  sample_group = all_samples,
   Phylum = all_phyla,
   stringsAsFactors = FALSE
 ) %>%
-  dplyr::left_join(heatmap_data, by = c("sample_source1", "Phylum")) %>%
+  dplyr::left_join(heatmap_data, by = c("sample_group", "Phylum")) %>%
   mutate(
-    n_vOTUs = if_else(is.na(n_vOTUs), 0, as.numeric(n_vOTUs)),
+    n_vOTUs_weighted = if_else(is.na(n_vOTUs_weighted), 0, n_vOTUs_weighted),  # ← Changed
     presence = if_else(is.na(presence), 0, presence)
   )
-
-message(sprintf("✅ Heatmap data ready: %d phyla detected\n", sum(heatmap_data_complete$presence > 0)))
-
-# ============================================================================
-# STEP 7: Create heatmap plot (exactly matching old code)
-# ============================================================================
-message("🎨 Creating heatmap...")
-
-# Set factor levels (exactly as old code)
-heatmap_data_complete$sample_source1 <- factor(
-  heatmap_data_complete$sample_source1, 
-  levels = c("BS", "SA", "IA", "DA")
-)
-
-# Order phyla by total presence (exactly as old code)
-phylum_order <- heatmap_data_complete %>%
-  group_by(Phylum) %>%
-  summarise(total_presence = sum(presence), .groups = "drop") %>%
-  arrange(desc(total_presence)) %>%
-  pull(Phylum)
-
-heatmap_data_complete$Phylum <- factor(heatmap_data_complete$Phylum, levels = phylum_order)
-
-# Create plot (exactly matching old code style)
-p_heatmap <- ggplot(heatmap_data_complete, aes(x = sample_source1, y = Phylum)) +
-  geom_tile(aes(fill = factor(presence)), color = "white", linewidth = 1) +
-  scale_fill_manual(
-    values = c("0" = "gray90", "1" = "#66C2A5"),
-    guide = "none"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    text = element_text(family = "Times"),
-    axis.text.x = element_text(angle = 0, hjust = 0.5, size = 18, family = "Times", color = "black"),
-    axis.text.y = element_text(color = "black", size = 18, family = "Times", face = "italic"),
-    axis.title = element_blank(),
-    legend.position = "none",
-    panel.grid = element_blank(),
-    plot.margin = margin(10, 10, 10, 10)
-  )
-
-print(p_heatmap)
-
-# Save plot
-ggsave(path_target("FigS5c_host_heatmap.pdf"), plot = p_heatmap, width = 8, height = 10, dpi = 300)
-ggsave(path_target("FigS5c_host_heatmap.png"), plot = p_heatmap, width = 8, height = 10, dpi = 300)
-
-# Save data
-write_csv(heatmap_data_complete, path_target("FigS5c_host_heatmap_data.csv"))
-
-# Summary statistics
-summary_data <- heatmap_data_complete %>%
-  group_by(sample_source1) %>%
-  summarise(
-    n_phyla_present = sum(presence > 0),
-    n_vOTUs_total = sum(n_vOTUs),
-    .groups = "drop"
-  )
-
-write_csv(summary_data, path_target("FigS5c_summary.csv"))
-
-message("✅ Figure S5c completed and saved!\n")
-
-# Print summary
-cat("\n========================================================================\n")
-cat("📊 Summary Statistics:\n")
-cat("========================================================================\n")
-print(summary_data)
-cat("========================================================================\n\n")
-
-```
-
-
-### Task 4: Figure S5b (OLD CODE VERSION - GLOBAL Definition)
-```{r}
-#| label: figs5c-host-heatmap-OLD-GLOBAL
-#| message: true
-#| fig.width: 8
-#| fig.height: 10
-
-message("========================================================================")
-message("Figure S5c: OLD CODE VERSION - GLOBAL Definition")
-message("Confidence threshold: ≥75")
-message("Criterion: Relative Abundance < 0.1% GLOBALLY")
-message("========================================================================\n")
-
-# ============================================================================
-# STEP 1: Load host prediction data from TSE metadata
-# ============================================================================
-message("📥 Loading host prediction data from TSE metadata...")
-
-host_genome <- metadata(tse)$host_genome_edges
-
-stopifnot(!is.null(host_genome))
-
-message("✅ host_genome loaded: ", nrow(host_genome), " predictions")
-message("   Columns: ", paste(colnames(host_genome), collapse = ", "), "\n")
-
-# ============================================================================
-# STEP 2: Filter high-confidence host predictions (≥75)
-# ============================================================================
-CONFIDENCE_THRESHOLD <- 80
-
-message(sprintf("🔍 Filtering host predictions (confidence ≥ %d)...\n", CONFIDENCE_THRESHOLD))
-
-host_filtered <- host_genome %>%
-  filter(Confidence.score >= CONFIDENCE_THRESHOLD) %>%
-  mutate(
-    Phylum = str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
-    Phylum = if_else(is.na(Phylum), "Unclassified", Phylum)
-  )
-
-message(sprintf("✅ High-confidence predictions: %d rows", nrow(host_filtered)))
-message(sprintf("✅ Unique phyla: %d\n", n_distinct(host_filtered$Phylum)))
-
-# ============================================================================
-# STEP 3: Calculate GLOBAL rare vOTUs (< 0.1% globally)
-# ============================================================================
-message("📊 Calculating GLOBAL relative abundance...")
-
-# Sample mapping (exactly as old code)
-sample_map <- data.frame(
-  sample_id = c("FCH3CGLCCXYL2DAA", "FCH3CGLCCXYL2EAA", "FCH3CGLCCXYL4FAA", "TARATASF"),
-  sample_source1 = c("SA", "IA", "BS", "DA"),
-  stringsAsFactors = FALSE
-)
-
-# Extract TPM
-tpm_mat <- assays(tse)$tpm
-
-# Convert to long format
-abundance_long <- as.data.frame(tpm_mat) %>%
-  rownames_to_column("vOTU_id") %>%
-  pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
-  dplyr::left_join(sample_map, by = "sample_id")
-
-# *** GLOBAL DEFINITION: Calculate TOTAL TPM across ALL samples ***
-total_TPM_global <- sum(abundance_long$TPM, na.rm = TRUE)
-
-message(sprintf("✅ Total TPM (GLOBAL): %.2f\n", total_TPM_global))
-
-# Calculate abundance per vOTU per sample_source1
-abundance_per_group <- abundance_long %>%
-  group_by(sample_source1, vOTU_id) %>%
-  summarise(TPM_sum = sum(TPM, na.rm = TRUE), .groups = "drop")
-
-# *** Calculate GLOBAL relative abundance ***
-abundance_per_group <- abundance_per_group %>%
-  mutate(rel_abundance_global = TPM_sum / total_TPM_global)
-
-# Identify RARE vOTUs (< 0.1% GLOBALLY and > 0)
-rare_votus_list_global <- abundance_per_group %>%
-  filter(rel_abundance_global < 0.001 & rel_abundance_global > 0) %>%
-  pull(vOTU_id) %>%
-  unique()
-
-message(sprintf("✅ Identified %d rare vOTUs (< 0.1%% GLOBALLY)\n", length(rare_votus_list_global)))
-
-# ============================================================================
-# STEP 4: Filter host predictions for rare vOTUs
-# ============================================================================
-message("🔗 Filtering host predictions for rare vOTUs...")
-
-host_rare <- host_filtered %>%
-  filter(vOTU_id %in% rare_votus_list_global)
-
-message(sprintf("✅ Rare vOTUs with host predictions: %d\n", n_distinct(host_rare$vOTU_id)))
-
-# ============================================================================
-# STEP 5: Prepare abundance data for rare vOTUs
-# ============================================================================
-message("📊 Preparing abundance data...")
-
-# Extract TPM for rare vOTUs
-tpm_rare <- as.data.frame(tpm_mat) %>%
-  rownames_to_column("vOTU_id") %>%
-  filter(vOTU_id %in% rare_votus_list_global) %>%
-  pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "tpm") %>%
-  dplyr::left_join(sample_map, by = "sample_id") %>%
-  filter(!is.na(sample_source1))
-
-message("✅ Abundance data prepared\n")
-
-# ============================================================================
-# STEP 6: Create heatmap data (presence/absence by Phylum)
-# ============================================================================
-message("🗂️ Creating heatmap data...")
-
-# Combine host predictions with abundance (many-to-many expected)
-host_abundance <- host_rare %>%
-  dplyr::left_join(tpm_rare, by = "vOTU_id", relationship = "many-to-many")
-
-# Calculate presence/absence per sample and Phylum
-heatmap_data <- host_abundance %>%
-  filter(tpm > 0) %>%
-  group_by(sample_source1, Phylum) %>%
-  summarise(
-    n_vOTUs = n_distinct(vOTU_id),
-    presence = 1,
-    .groups = "drop"
-  )
-
-# Complete the grid (all samples × all phyla)
-all_samples <- c("BS", "SA", "IA", "DA")
-all_phyla <- unique(host_filtered$Phylum)
-
-heatmap_data_complete <- expand.grid(
-  sample_source1 = all_samples,
-  Phylum = all_phyla,
-  stringsAsFactors = FALSE
-) %>%
-  dplyr::left_join(heatmap_data, by = c("sample_source1", "Phylum")) %>%
-  mutate(
-    n_vOTUs = if_else(is.na(n_vOTUs), 0, as.numeric(n_vOTUs)),
-    presence = if_else(is.na(presence), 0, presence)
-  )
-
-message(sprintf("✅ Heatmap data ready: %d phyla detected\n", sum(heatmap_data_complete$presence > 0)))
-
-# ============================================================================
-# STEP 7: Create heatmap plot
-# ============================================================================
-message("🎨 Creating heatmap...")
-
-# Set factor levels
-heatmap_data_complete$sample_source1 <- factor(
-  heatmap_data_complete$sample_source1, 
-  levels = c("BS", "SA", "IA", "DA")
-)
 
 # Order phyla by total presence
 phylum_order <- heatmap_data_complete %>%
@@ -861,70 +483,49 @@ phylum_order <- heatmap_data_complete %>%
   arrange(desc(total_presence)) %>%
   pull(Phylum)
 
-heatmap_data_complete$Phylum <- factor(heatmap_data_complete$Phylum, levels = phylum_order)
+heatmap_data_complete <- heatmap_data_complete %>%
+  mutate(
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA")),
+    Phylum = factor(Phylum, levels = phylum_order)
+  )
 
-# Create plot
-p_heatmap_old <- ggplot(heatmap_data_complete, aes(x = sample_source1, y = Phylum)) +
+# Create compact heatmap (horizontal layout)
+p_heatmap <- ggplot(heatmap_data_complete, aes(x = sample_group, y = Phylum)) +
   geom_tile(aes(fill = factor(presence)), color = "white", linewidth = 1) +
   scale_fill_manual(
     values = c("0" = "gray90", "1" = "#66C2A5"),
     guide = "none"
   ) +
-  labs(title = "OLD CODE VERSION - GLOBAL Definition") +
-  theme_minimal(base_size = 14) +
+  theme_minimal(base_size = 16) +
   theme(
     text = element_text(family = "Times"),
-    axis.text.x = element_text(angle = 0, hjust = 0.5, size = 18, family = "Times", color = "black"),
-    axis.text.y = element_text(color = "black", size = 18, family = "Times", face = "italic"),
+    axis.text.x = element_text(angle = 0, hjust = 0.5, size = 18, color = "black"),
+    axis.text.y = element_text(color = "black", size = 18, face = "italic"),
     axis.title = element_blank(),
-    plot.title = element_text(size = 14, face = "bold", hjust = 0.5, color = "red"),
     legend.position = "none",
     panel.grid = element_blank(),
     plot.margin = margin(10, 10, 10, 10)
   )
 
-print(p_heatmap_old)
+print(p_heatmap)
 
-# Save plot
-ggsave(path_target("FigS5c_host_heatmap_OLD_GLOBAL.pdf"), plot = p_heatmap_old, width = 8, height = 10, dpi = 300)
-ggsave(path_target("FigS5c_host_heatmap_OLD_GLOBAL.png"), plot = p_heatmap_old, width = 8, height = 10, dpi = 300)
+ggsave(path_target("FigS5c_host_heatmap.png"), p_heatmap, width = 8, height = 10, dpi = 300)
+write_csv(heatmap_data_complete, path_target("FigS5c_host_heatmap_data.csv"))
 
-# Save data
-write_csv(heatmap_data_complete, path_target("FigS5c_host_heatmap_data_OLD_GLOBAL.csv"))
-
-# Summary statistics
 summary_data <- heatmap_data_complete %>%
-  group_by(sample_source1) %>%
+  group_by(sample_group) %>%
   summarise(
     n_phyla_present = sum(presence > 0),
-    n_vOTUs_total = sum(n_vOTUs),
+    n_vOTUs_weighted = sum(n_vOTUs_weighted),  # ← Changed: use weighted sum
     .groups = "drop"
   )
 
-write_csv(summary_data, path_target("FigS5c_summary_OLD_GLOBAL.csv"))
+write_csv(summary_data, path_target("FigS5c_summary.csv"))
 
-# Save rare vOTU list for comparison
-write_csv(
-  data.frame(vOTU_id = rare_votus_list_global, definition = "GLOBAL"),
-  path_target("rare_vOTUs_S5c_OLD_GLOBAL.csv")
-)
-
-message("✅ Figure S5c OLD CODE VERSION completed and saved!\n")
-
-# Print summary
-cat("\n========================================================================\n")
-cat("📊 Summary Statistics (GLOBAL Definition):\n")
-cat("========================================================================\n")
-cat("Total TPM (GLOBAL):", sprintf("%.2f", total_TPM_global), "\n")
-cat("Rare vOTUs (< 0.1% GLOBALLY):", length(rare_votus_list_global), "\n")
-cat("\n")
-print(summary_data)
-cat("========================================================================\n\n")
-
+message("FigS5c completed: ", dplyr::n_distinct(host_weighted$vOTU_id), 
+        " rare vOTUs with host predictions (weighted)")
 
 ```
 
-```{r}
 
-```
 

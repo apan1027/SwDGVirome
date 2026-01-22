@@ -29,8 +29,7 @@ projthis::use_qmd("05-fig5-heatmap.qmd")
 projthis::use_qmd("06-figs1-host-composition")
 projthis::use_qmd("07-figs2-venn-diagram")
 projthis::use_qmd("08-figs3-lifestyle")
-
-
+projthis::use_qmd("11-figS6-amg-DA")
 
 projthis::use_qmd("09-figs4-abundant-patterns")
 
@@ -41,7 +40,12 @@ projthis::use_qmd("09-figs4-abundant-patterns")
 
 #
 renv::snapshot()
-
-renv::snapshot()
-
 renv::restore()
+
+
+
+#git add renv.lock renv/activate.R
+
+#git status
+#git commit -m "Major refactoring: simplify analysis scripts and update dependency lock
+#git push origin main

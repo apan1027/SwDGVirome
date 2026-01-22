@@ -75,123 +75,71 @@ Maintaining your code within this section ensures a clean project structure and 
 
 Below is an example structure to get you started:
 
-### Task 1: Task 1: Load TSE and extract abundance data
+### Task 1: Load TSE
 
 ```{r}
 #| label: task1-load-data
 
-cat("========================================================================\n")
-cat("TASK 1: Loading TSE object and extracting abundance data\n")
-cat("========================================================================\n\n")
-
-# Load TSE from 01-tse-construction
-tse_path <- here("data", "01-tse-construction", "tse.rds")
-if (!file.exists(tse_path)) {
-  stop("TSE file not found at: ", tse_path)
-}
-
-tse <- readRDS(tse_path)
-
-cat("✅ TSE object loaded\n")
-cat("   Dimensions:", nrow(tse), "vOTUs ×", ncol(tse), "samples\n\n")
-
-# Extract TPM abundance matrix
+tse <- readRDS(here("data", "01-tse-construction", "tse.rds"))
 tpm_matrix <- assay(tse, "tpm")
 
-cat("✅ TPM matrix extracted\n")
-cat("   Dimensions:", nrow(tpm_matrix), "vOTUs ×", ncol(tpm_matrix), "samples\n\n")
-
-# Extract sample metadata
 sample_metadata <- colData(tse) %>%
   as.data.frame() %>%
   rownames_to_column("sample_id") %>%
-  select(sample_id, sample_group)
+  dplyr::select(sample_id, sample_group)
 
-cat("✅ Sample metadata extracted\n")
-cat("   Sample groups:", paste(unique(sample_metadata$sample_group), collapse = ", "), "\n\n")
-
-cat("========================================================================\n")
-cat("TASK 1 COMPLETED\n")
-cat("========================================================================\n\n")
-
+message("TSE loaded: ", nrow(tse), " vOTUs, ", ncol(tse), " samples")
 ```
 
-### Task 2: Prepare data for Venn diagram
+### Task 2: Prepare Data
 
 ```{r}
 #| label: task2-prepare-data
 
-cat("========================================================================\n")
-cat("TASK 2: Preparing data for Venn diagram (SA, IA, DA)\n")
-cat("========================================================================\n\n")
-
-# Convert TPM matrix to long format
-cat("Converting TPM matrix to long format...\n")
+# Convert to long format and merge metadata
 tpm_long <- tpm_matrix %>%
   as.data.frame() %>%
   rownames_to_column("vOTU_id") %>%
-  pivot_longer(
-    cols = -vOTU_id,
-    names_to = "sample_id",
-    values_to = "TPM"
-  ) %>%
-  left_join(sample_metadata, by = "sample_id")
+  pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
+  dplyr::left_join(sample_metadata, by = "sample_id")
 
-cat("✅ TPM data converted and merged with metadata\n\n")
-
-# Extract vOTUs present in each aquifer (TPM > 0)
-cat("Identifying vOTUs in each aquifer...\n")
-
+# Extract vOTUs per aquifer (TPM > 0)
 SA_viruses <- tpm_long %>%
-  filter(sample_group == "SA", TPM > 0) %>%
+  dplyr::filter(sample_group == "SA", TPM > 0) %>%
   pull(vOTU_id) %>%
   unique()
 
 IA_viruses <- tpm_long %>%
-  filter(sample_group == "IA", TPM > 0) %>%
+  dplyr::filter(sample_group == "IA", TPM > 0) %>%
   pull(vOTU_id) %>%
   unique()
 
 DA_viruses <- tpm_long %>%
-  filter(sample_group == "DA", TPM > 0) %>%
+  dplyr::filter(sample_group == "DA", TPM > 0) %>%
   pull(vOTU_id) %>%
   unique()
 
-cat("✅ vOTUs identified:\n")
-cat("   SA (shallow aquifer):", length(SA_viruses), "vOTUs\n")
-cat("   IA (intermediate aquifer):", length(IA_viruses), "vOTUs\n")
-cat("   DA (deep aquifer):", length(DA_viruses), "vOTUs\n\n")
+# Calculate core viruses
+core_viruses <- Reduce(base::intersect, list(SA_viruses, IA_viruses, DA_viruses))
 
-# Calculate core viruses (present in all three)
-core_viruses <- Reduce(intersect, list(SA_viruses, IA_viruses, DA_viruses))
-
-cat("✅ Core viruses (SA ∩ IA ∩ DA):", length(core_viruses), "vOTUs\n\n")
-
-cat("========================================================================\n")
-cat("TASK 2 COMPLETED\n")
-cat("========================================================================\n\n")
-
+message("vOTUs identified: SA=", length(SA_viruses), 
+        ", IA=", length(IA_viruses), 
+        ", DA=", length(DA_viruses),
+        " | Core=", length(core_viruses))
 ```
 
-### Task 3: Create Venn diagram (matching Fig 2c style)
-
+### Task 3: Create Venn Diagram
 ```{r}
-#| label: task3-create-venn
+#| label: task3-create-venn  # 
 #| fig.width: 10
 #| fig.height: 10
+#| fig.asp: 1  
 
-cat("========================================================================\n")
-cat("TASK 3: Creating and saving Venn diagram (matching Fig 2c style)\n")
-cat("========================================================================\n\n")
+# Color scheme: Set2 palette (colors 2-4)
+venn_colors <- RColorBrewer::brewer.pal(4, "Set2")[2:4]
 
-# Color scheme: Set2 palette (colors 2-4, matching Fig 2c)
-venn_colors_4 <- brewer.pal(4, "Set2")
-venn_colors <- venn_colors_4[2:4]  # SA, IA, DA
-
-cat("Creating Venn diagram with optimized settings...\n")
-
-# Create Venn diagram object (100% matching original A4 script)
-venn_plot <- venn.diagram(
+# Create Venn diagram
+venn_plot <- VennDiagram::venn.diagram(
   x = list(
     SA = SA_viruses,
     IA = IA_viruses,
@@ -199,31 +147,19 @@ venn_plot <- venn.diagram(
   ),
   category.names = c("SA", "IA", "DA"),
   filename = NULL,
-  
-  # ===== Color settings (matching Fig 2c) =====
   fill = venn_colors,
   alpha = 0.5,
-  
-  # ===== Border settings =====
   col = "black",
   lwd = 2,
   lty = "solid",
-  
-  # ===== Number label font settings (matching Fig 2c) =====
   cex = 2,
   fontface = "bold",
   fontfamily = "Times",
-  
-  # ===== Category label font settings (matching Fig 2c) =====
   cat.cex = 3,
   cat.fontface = "bold",
   cat.fontfamily = "Times",
-  
-  # ===== Label position fine-tuning =====
-  cat.pos = c(-30, 30, -180),     # SA top-right, IA bottom-left, DA bottom-right
-  cat.dist = c(0.08, 0.08, 0.07), # Distance adjustment
-  
-  # ===== Other parameters (matching original script) =====
+  cat.pos = c(-30, 30, -180),
+  cat.dist = c(0.08, 0.08, 0.07),
   main = NULL,
   sub = NULL,
   scaled = TRUE,
@@ -231,29 +167,18 @@ venn_plot <- venn.diagram(
   rotation.degree = 0
 )
 
-# Display in R Markdown/Quarto
-grid.newpage()
-grid.draw(venn_plot)
+# Display in HTML with square aspect ratio
+grid::grid.newpage()
+grid::pushViewport(grid::viewport(width = unit(1, "snpc"), height = unit(1, "snpc")))
+grid::grid.draw(venn_plot)
+grid::popViewport()
 
-cat("✅ Venn diagram created and displayed\n\n")
-
-# Save Venn diagram as PNG (directly in target directory)
-cat("Saving Venn diagram as PNG...\n")
-png(
-  path_target("FigS2_venn_diagram.png"),
-  width = 2000, height = 2000, res = 300
-)
-grid.draw(venn_plot)
+# Save PNG
+png(path_target("FigS2_venn_diagram.png"), width = 2000, height = 2000, res = 300)
+grid::grid.draw(venn_plot)
 dev.off()
 
-cat("✅ Venn diagram saved:", path_target("FigS2_venn_diagram.png"), "\n")
-cat("   Resolution: 2000×2000 pixels, 300 DPI\n\n")
-
-cat("========================================================================\n")
-cat("TASK 3 COMPLETED\n")
-cat("========================================================================\n\n")
-
-
+message("Venn diagram saved: ", path_target("FigS2_venn_diagram.png"))
 ```
 
 

@@ -162,9 +162,8 @@ message("✅ Data loaded: ",
 
 ### Task 2: Build Assay Matrices
 Convert abundance data frames to matrices (vOTU × sample).
-
 ```{r}
-##| label: task2-build-assays
+#| label: task2-build-assays
 #| message: true
 #| warning: true
 
@@ -182,48 +181,26 @@ safe_to_matrix <- function(df, id_col = "vOTU_id") {
 
 assay_mats <- lapply(assay_dfs, safe_to_matrix)
 
-# 2.2 Check original dimensions
-cat("Original assay dimensions:\n")
-for (i in seq_along(assay_mats)) {
-  cat("  ", names(assay_mats)[i], ": ", nrow(assay_mats[[i]]), " × ", ncol(assay_mats[[i]]), "\n")
-}
-
-# 2.3 Determine common samples and vOTUs
-# Sample IDs are in column names (not in sample_meta)
+# 2.2 Determine common samples and vOTUs
 all_samples <- lapply(assay_mats, colnames)
 common_samples <- Reduce(base::intersect, all_samples)
 
 all_features <- lapply(assay_mats, rownames)
 common_features <- Reduce(base::intersect, c(list(unique(contig_anno_raw$vOTU_id)), all_features))
 
-cat("\nCommon samples: ", length(common_samples), "\n")
-cat("Sample IDs: ", paste(common_samples, collapse = ", "), "\n")
-cat("Common vOTUs: ", length(common_features), "\n")
-
 stopifnot(length(common_samples) > 0, length(common_features) > 0)
 
-# 2.4 Subset and align assays (保持列名)
+# 2.3 Subset and align assays
 assay_mats <- lapply(assay_mats, function(m) {
-  # Subset rows and columns
-  m_aligned <- m[common_features, common_samples, drop = FALSE]
-  m_aligned
+  m[common_features, common_samples, drop = FALSE]
 })
-
-cat("\nAfter alignment:\n")
-for (i in seq_along(assay_mats)) {
-  cat("  ", names(assay_mats)[i], ": ", 
-      nrow(assay_mats[[i]]), " vOTUs × ", 
-      ncol(assay_mats[[i]]), " samples\n")
-}
-
-cat("\nFirst assay colnames: ", paste(colnames(assay_mats[[1]]), collapse = ", "), "\n")
-cat("First assay rownames (first 3): ", paste(head(rownames(assay_mats[[1]]), 3), collapse = ", "), "\n")
 
 # Verify all assays have same dimensions
 dims <- sapply(assay_mats, dim)
 stopifnot(length(unique(dims[1,])) == 1, length(unique(dims[2,])) == 1)
 
-message("✅ Assays built and aligned")
+message("✅ Assays aligned: ", nrow(assay_mats[[1]]), " vOTUs x ",
+        ncol(assay_mats[[1]]), " samples")
 
 ```
 
@@ -236,22 +213,10 @@ message("✅ Assays built and aligned")
 #| message: true
 #| warning: true
 
-# 3.1 Build colData from sample_metadata
-# Note: sample_id in sample_metadata should match assay column names
-
-cat("Sample IDs from assays: ", paste(common_samples, collapse = ", "), "\n")
-cat("Sample IDs from metadata: ", paste(sample_meta_raw$sample_id, collapse = ", "), "\n\n")
-
-# Check if they match
-if (!all(common_samples %in% sample_meta_raw$sample_id)) {
-  warning("Some assay samples not found in sample_metadata!")
-}
-
-# Build colData with sample_group mapping
+# 3.1 Build colData with sample_group mapping
 colData_df <- sample_meta_raw %>%
   filter(sample_id %in% common_samples) %>%
   arrange(match(sample_id, common_samples)) %>%
-  # Add sample_group column
   mutate(
     sample_group = case_when(
       sample_source == "Baltic Sea" ~ "BS",
@@ -265,57 +230,42 @@ colData_df <- sample_meta_raw %>%
   column_to_rownames("sample_id")
 
 # 3.2 Verify alignment
-cat("colData rownames:\n")
-print(rownames(colData_df))
-cat("\nAssay colnames:\n")
-print(colnames(assay_mats[[1]]))
-cat("\n")
+stopifnot(identical(rownames(colData_df), colnames(assay_mats[[1]])))
 
-# Check alignment
-if (!identical(rownames(colData_df), colnames(assay_mats[[1]]))) {
-  cat("⚠️  Alignment issue detected:\n")
-  cat("  colData: ", paste(rownames(colData_df), collapse = ", "), "\n")
-  cat("  Assay: ", paste(colnames(assay_mats[[1]]), collapse = ", "), "\n")
-  stop("colData and assay samples do not match!")
-}
-
-message("✅ colData built: ", nrow(colData_df), " samples")
-message("   Sample groups: ", paste(levels(colData_df$sample_group), collapse = ", "))
+message("✅ Sample metadata built: ", nrow(colData_df), " samples (", 
+        paste(levels(colData_df$sample_group), collapse = ", "), ")")
 ```
 
 
 
-### Task 4: Build rowData (vOTU Metadata from Representative Contigs)
-
+### Task 4: Build feature metadata (rowData)
+Complete vOTU-level metadata including taxonomy, quality metrics, ecosystem classification, host predictions, and contig linkage.
+####  4.1 Base taxonomy and quality metrics
 ```{r}
-#| label: task4-build-rowdata
+#| label: task4.1-base-metadata
 #| message: true
 #| warning: true
 
-# 4.1 Select representative contig for each vOTU
+# 4.1.1 Select representative contig for each vOTU
 # Strategy: Prioritize contigs with taxonomy info > taxonomy_priority > completeness > length
-
 rep_contigs <- contig_anno_raw %>%
   mutate(
     completeness_num = suppressWarnings(as.numeric(checkv_completeness)),
     length_num = suppressWarnings(as.numeric(contig_length)),
-    # Check if has taxonomy info
     has_taxonomy = (!is.na(family) & family != "") | (!is.na(genus) & genus != "")
   ) %>%
   filter(vOTU_id %in% common_features) %>%
   group_by(vOTU_id) %>%
   arrange(
-    desc(has_taxonomy),        # Priority 1: Has taxonomy
-    taxonomy_priority,         # Priority 2: Official priority
-    desc(completeness_num),    # Priority 3: Completeness
-    desc(length_num)           # Priority 4: Length
+    desc(has_taxonomy),
+    taxonomy_priority,
+    desc(completeness_num),
+    desc(length_num)
   ) %>%
-    dplyr::slice_head(n = 1) %>%  # ← 改用 slice_head，更安全
+  dplyr::slice_head(n = 1) %>%
   ungroup()
 
-message("Selected ", nrow(rep_contigs), " representative contigs")
-
-# 4.2 Calculate vOTU-level stats (n_contigs, total_length)
+# 4.1.2 Calculate vOTU-level stats
 votu_stats <- contig_anno_raw %>%
   filter(vOTU_id %in% common_features) %>%
   group_by(vOTU_id) %>%
@@ -325,35 +275,25 @@ votu_stats <- contig_anno_raw %>%
     .groups = "drop"
   )
 
-# 4.3 Extract taxonomy and quality from representative contigs
+# 4.1.3 Extract taxonomy and quality from representative contigs
 rowData_base <- rep_contigs %>%
   select(
     vOTU_id,
     # Taxonomy (8 columns)
     realm, kingdom, phylum, class, order, family, genus, species,
     # Quality metrics
-    checkv_completeness,
-    checkv_contamination,
-    checkv_completeness_method,
-    genomad_virus_score,
-    genomad_n_hallmarks,
+    checkv_completeness, checkv_contamination, checkv_completeness_method,
+    genomad_virus_score, genomad_n_hallmarks,
     # Lifestyle
-    lifestyle,
-    bacphlip_lifestyle,
+    lifestyle, bacphlip_lifestyle,
     # vContact3
-    vc_id,
-    vc_genus,
-    vc_novel_genus  # ← 新增这一行！
+    vc_id, vc_genus, vc_novel_genus
   ) %>%
-  left_join(votu_stats, by = "vOTU_id")
-
-
-# ⚠️ 关键：必须按照 assay 的行名顺序排列
-rowData_base <- rowData_base %>%
-  arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%  # ← 改这里
+  left_join(votu_stats, by = "vOTU_id") %>%
+  arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%
   column_to_rownames("vOTU_id")
 
-# 4.4 Add quality tier classification
+# 4.1.4 Add quality tier classification
 rowData_base <- rowData_base %>%
   mutate(
     completeness_num = suppressWarnings(as.numeric(checkv_completeness)),
@@ -366,42 +306,35 @@ rowData_base <- rowData_base %>%
   ) %>%
   select(-completeness_num)
 
-message("✅ rowData base built: ", nrow(rowData_base), " vOTUs")
-
-# Verify alignment
-cat("rowData rownames (first 5): ", paste(head(rownames(rowData_base), 5), collapse = ", "), "\n")
-cat("Assay rownames (first 5): ", paste(head(rownames(assay_mats[[1]]), 5), collapse = ", "), "\n")
-
 stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
-# Your visualization code here
+
+message("✅ 4.1 Base metadata: ", nrow(rowData_base), " vOTUs with taxonomy and quality")
+
 ```
 
 
 
-#### Task 4.5: Add ecosystem classification (eco_level5)
-
-```{r}
-#| label: task4.5-add-ecosystem
+#### 4.2 Ecosystem classification
+```{r} 
+ #| label: task4.2-ecosystem
 #| message: true
 #| warning: true
 
 if (!is.null(imgvr_raw)) {
-  cat("=== Extracting ecosystem classification (Level 5) ===\n")
   
-  # 4.5.1 Function to extract Level 5 from ecosystem string
+  # 4.2.1 Function to extract Level 5 from ecosystem string
   extract_level5_position5 <- function(eco_string) {
     if (is.na(eco_string) || eco_string == "") return(NA_character_)
     parts <- strsplit(as.character(eco_string), ";")[[1]]
     parts <- trimws(parts)
-   if (length(parts) >= 5 && parts[5] != "") {
-
-      return(parts[5])  # ← 返回第5个元素
+    if (length(parts) >= 5 && parts[5] != "") {
+      return(parts[5])
     } else {
       return(NA_character_)
     }
   }
   
-  # 4.5.2 Extract Level 5 from imgvr
+  # 4.2.2 Extract Level 5 from imgvr
   imgvr_eco <- imgvr_raw %>%
     select(contig_id, eco_class = `Ecosystem classification`) %>%
     mutate(level5 = sapply(eco_class, extract_level5_position5)) %>%
@@ -409,49 +342,45 @@ if (!is.null(imgvr_raw)) {
     select(contig_id, eco_level5 = level5) %>%
     distinct()
   
-  message("Extracted ecosystem Level 5: ", nrow(imgvr_eco), " contigs")
-  
-  # 4.5.3 Get contig_id for each vOTU (from representative contigs)
+  # 4.2.3 Get contig_id for each vOTU
   votu_to_contig <- rep_contigs %>%
     filter(vOTU_id %in% rownames(rowData_base)) %>%
     select(vOTU_id, contig_id)
   
-  # 4.5.4 Merge ecosystem info
+  # 4.2.4 Merge ecosystem info
   votu_eco <- votu_to_contig %>%
     left_join(imgvr_eco, by = "contig_id") %>%
     select(vOTU_id, eco_level5)
   
-  # 4.5.5 Add to rowData_base
+  # 4.2.5 Add to rowData_base
   rowData_base <- rowData_base %>%
     rownames_to_column("vOTU_id") %>%
     left_join(votu_eco, by = "vOTU_id") %>%
     arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%
     column_to_rownames("vOTU_id")
   
-  # Count how many vOTUs have ecosystem annotation
   n_with_eco <- sum(!is.na(rowData_base$eco_level5))
-  message("✅ eco_level5 added to rowData")
-  message("   vOTUs with ecosystem annotation: ", n_with_eco, " / ", nrow(rowData_base), 
-          " (", round(n_with_eco/nrow(rowData_base)*100, 1), "%)")
-  
-  # Verify alignment
-  stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
+  message("✅ 4.2 Ecosystem: ", n_with_eco, "/", nrow(rowData_base), 
+          " vOTUs (", round(n_with_eco/nrow(rowData_base)*100, 1), "%)")
   
 } else {
   warning("⚠️  Skipping ecosystem annotation (imgvr_source.tsv not loaded)")
 }
+
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
+
 ```
 
 
 
-### Task 5: Build colData (Sample Metadata)
+#### 4.3 Host predictions
 
 ```{r}
-#| label: task5-add-host
+#| label: task4.3-host-predictions
 #| message: true
 #| warning: true
 
-# 5.1 Aggregate host genus predictions
+# 4.3.1 Aggregate host genus predictions
 host_genus_agg <- host_genus_raw %>%
   filter(vOTU_id %in% rownames(rowData_base)) %>%
   group_by(vOTU_id) %>%
@@ -468,9 +397,7 @@ host_genus_agg <- host_genus_raw %>%
     )
   )
 
-message("Host genus aggregated: ", nrow(host_genus_agg), " vOTUs with predictions")
-
-# 5.2 Aggregate host species predictions
+# 4.3.2 Aggregate host species predictions
 host_species_agg <- host_genome_raw %>%
   filter(vOTU_id %in% rownames(rowData_base)) %>%
   group_by(vOTU_id) %>%
@@ -480,47 +407,35 @@ host_species_agg <- host_genome_raw %>%
     .groups = "drop"
   )
 
-message("Host species aggregated: ", nrow(host_species_agg), " vOTUs with predictions")
-
-# 5.3 Merge host info into rowData
-rowData_with_host <- rowData_base %>%
+# 4.3.3 Merge host info into rowData
+rowData_base <- rowData_base %>%
   rownames_to_column("vOTU_id") %>%
   left_join(host_genus_agg, by = "vOTU_id") %>%
   left_join(host_species_agg, by = "vOTU_id") %>%
-  arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%  # 保持顺序
+  arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%
   column_to_rownames("vOTU_id")
 
-# Verify alignment
-stopifnot(identical(rownames(rowData_with_host), rownames(assay_mats[[1]])))
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
 
-message("✅ Host predictions added to rowData")
-
-
-
-
-
-# Your visualization code here
+n_with_host <- sum(!is.na(rowData_base$hostGenusset))
+message("✅ 4.3 Host predictions: ", n_with_host, "/", nrow(rowData_base), 
+        " vOTUs (", round(n_with_host/nrow(rowData_base)*100, 1), "%)")
 ```
-
-
-### Task 6: add-contig-linkage
-
+#### 4.4 Contig linkage
 ```{r}
-#| label: task6-add-contig-linkage
+#| label: task4.4-contig-linkage
 #| message: true
 #| warning: true
 
-# 6.1 Build vOTU → contig mapping
+# 4.4.1 Build vOTU → contig mapping
 bridge_votu_contig <- contig_anno_raw %>%
   filter(!is.na(vOTU_id), !is.na(contig_id),
          vOTU_id != "", contig_id != "",
-         vOTU_id %in% rownames(rowData_with_host)) %>%
+         vOTU_id %in% rownames(rowData_base)) %>%
   distinct(vOTU_id, contig_id) %>%
   arrange(vOTU_id, contig_id)
 
-message("Built vOTU-contig bridge: ", nrow(bridge_votu_contig), " edges")
-
-# 6.2 Create CharacterList
+# 4.4.2 Create CharacterList
 v2c_map <- split(bridge_votu_contig$contig_id, bridge_votu_contig$vOTU_id)
 v2c_map <- lapply(v2c_map, unique)
 
@@ -529,33 +444,34 @@ lookup <- function(id) {
   if (is.null(x)) character(0) else as.character(x)
 }
 
-# 必须按照 rowData 的行名顺序创建
-votu_ids_ordered <- rownames(rowData_with_host)
+votu_ids_ordered <- rownames(rowData_base)
 contigs_aligned <- lapply(votu_ids_ordered, lookup)
 contig_ids_list <- IRanges::CharacterList(contigs_aligned)
 names(contig_ids_list) <- votu_ids_ordered
 
-# 6.3 Add to rowData
-rowData_with_host$contig_ids <- contig_ids_list
+# 4.4.3 Add to rowData
+rowData_base$contig_ids <- contig_ids_list
 
-message("✅ contig_ids added to rowData")
-message("   Length summary: ", paste(quantile(lengths(contig_ids_list), c(0, 0.5, 0.9, 1)), collapse = " / "))
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
 
-# Verify alignment still holds
-stopifnot(identical(rownames(rowData_with_host), rownames(assay_mats[[1]])))
+message("✅ 4.4 Contig linkage: ", nrow(bridge_votu_contig), " edges, ",
+        sum(lengths(contig_ids_list) > 1), " multi-contig vOTUs")
 
-# Your visualization code here
+# Final rowData summary
+message("✅ Task 4 completed: rowData with ", ncol(rowData_base), " columns")
+
 ```
 
 
-
-### Task 7: prepare-metadata
+### Task 5: Task 5: Construct and validate TSE object
+Prepare metadata, construct TreeSummarizedExperiment, and validate output.
+#### 5.1 Prepare metadata list
 ```{r}
-#| label: task7-prepare-metadata
+#| label: task5.1-prepare-metadata
 #| message: true
 #| warning: true
 
-# 7.2 Prepare metadata list
+# Prepare complete metadata list
 metadata_list <- list(
   # Construction info
   construction_info = list(
@@ -565,12 +481,12 @@ metadata_list <- list(
     n_samples_raw = nrow(sample_meta_raw),
     n_samples     = length(common_samples),
     n_votus_raw   = length(unique(contig_anno_raw$vOTU_id)),
-    n_votus       = nrow(rowData_with_host),
+    n_votus       = nrow(rowData_base),
     assays_loaded = names(assay_mats),
     strategy_representative_contig = "has_taxonomy > taxonomy_priority > completeness > length"
   ),
   
-  # Protein annotations (full tables for lookup)
+  # Protein annotations
   anno_prot_dramv = anno_prot_dramv,
   anno_prot_eggnog = anno_prot_eggnog,
   anno_prot_phrog = anno_prot_phrog,
@@ -595,141 +511,93 @@ metadata_list <- list(
   )
 )
 
-message("✅ Metadata prepared with ", length(metadata_list), " components")
-message("   Protein tables: DRAM-v (", nrow(anno_prot_dramv), "), eggNOG (", nrow(anno_prot_eggnog), "), PHROG (", nrow(anno_prot_phrog), ")")
-message("   AMG tables: DRAM-v (", nrow(amg_dramv_raw), "), VIBRANT (", nrow(amg_vibrant_raw), ")")
+# Add complete contig annotation
+metadata_list$contig_annotation <- contig_anno_raw %>%
+  filter(vOTU_id %in% rownames(rowData_base))
 
+# Add complete imgvr source if available
+if (!is.null(imgvr_raw)) {
+  metadata_list$imgvr_source <- imgvr_raw
+}
 
-# Your visualization code here
+message("✅ 5.1 Metadata prepared: ", length(metadata_list), " components")
 ```
 
 
 
-### Task 8: construct-tse
+#### 5.2 Construct TSE
 ```{r}
-#| label: task8-construct-tse
+#| label: task5.2-construct-tse
 #| message: true
 #| warning: true
 
-# 8.1 Final integrity checks
-cat("\n=== Final Integrity Checks ===\n")
-cat("Assays: ", nrow(assay_mats[[1]]), " × ", ncol(assay_mats[[1]]), "\n")
-cat("rowData: ", nrow(rowData_with_host), " rows\n")
-cat("colData: ", nrow(colData_df), " rows\n")
-
+# 5.2.1 Final integrity checks
 stopifnot(
-  identical(rownames(assay_mats[[1]]), rownames(rowData_with_host)),
+  identical(rownames(assay_mats[[1]]), rownames(rowData_base)),
   identical(colnames(assay_mats[[1]]), rownames(colData_df))
 )
 
+message("✅ 5.2 All dimensions verified")
 
-cat("✅ All dimensions aligned\n\n")
-
-# 8.2 Prepare COMPLETE metadata list (including raw annotation data)
-message("=== Preparing complete metadata list ===")
-
-# 存储完整的 contig_annotation（所有contigs）
-metadata_list$contig_annotation <- contig_anno_raw %>%
-  filter(vOTU_id %in% rownames(rowData_with_host))
-
-message("✅ contig_annotation prepared: ", nrow(metadata_list$contig_annotation), " rows")
-message("   Columns: ", paste(colnames(metadata_list$contig_annotation), collapse = ", "))
-
-# 存储完整的 imgvr_source（整个表，不做任何筛选）
-if (!is.null(imgvr_raw)) {
-  metadata_list$imgvr_source <- imgvr_raw  # ← 直接存整个表！
-  
-  message("✅ imgvr_source prepared: ", nrow(metadata_list$imgvr_source), " rows")
-  message("   Columns: ", paste(colnames(metadata_list$imgvr_source), collapse = ", "))
-} else {
-  message("⚠️  imgvr_source not available")
-  metadata_list$imgvr_source <- NULL
-}
-
-message("✅ Complete metadata list prepared with ", length(metadata_list), " components\n")
-
-
-# 8.3 Construct TSE
+# 5.2.2 Construct TSE
 tse <- TreeSummarizedExperiment(
   assays  = S4Vectors::SimpleList(assay_mats),
   colData = S4Vectors::DataFrame(colData_df),
-  rowData = S4Vectors::DataFrame(rowData_with_host),
+  rowData = S4Vectors::DataFrame(rowData_base),
   metadata = metadata_list
 )
 
 message("✅ TSE constructed successfully!")
 message("   Dimensions: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
-message("   Assays (", length(assays(tse)), "): ", paste(names(assays(tse)), collapse = ", "))
-message("   rowData columns (", ncol(rowData(tse)), "): ", paste(head(colnames(rowData(tse)), 10), collapse = ", "), "...")
-message("   colData columns (", ncol(colData(tse)), "): ", paste(colnames(colData(tse)), collapse = ", "))
-message("   Metadata components (", length(metadata(tse)), "): ", paste(names(metadata(tse)), collapse = ", "))
+message("   Assays: ", paste(names(assays(tse)), collapse = ", "))
+message("   Metadata components: ", length(metadata(tse)))
+```
 
-cat("\n=== Verifying metadata content ===\n")
-cat("contig_annotation in metadata: ", "contig_annotation" %in% names(metadata(tse)), "\n")
-if ("contig_annotation" %in% names(metadata(tse))) {
-  cat("  Rows: ", nrow(metadata(tse)$contig_annotation), "\n")
-}
-cat("imgvr_source in metadata: ", "imgvr_source" %in% names(metadata(tse)), "\n")
-if ("imgvr_source" %in% names(metadata(tse))) {
-  cat("  Rows: ", nrow(metadata(tse)$imgvr_source), "\n")
-}
 
-cat("\n=== TSE Summary ===\n")
-print(tse)
 
-# 8.4 Save TSE
+#### 5.3 Save and validate
+```{r}
+#| label: task5.3-save-validate
+#| message: true
+#| warning: true
+
+# 5.3.1 Save TSE
 output_path <- path_target("tse.rds")
 saveRDS(tse, output_path)
-message("\n✅ TSE saved to: ", output_path)
 
-# 8.5 Save session info
+# 5.3.2 Save session info
 session_info_path <- path_target("session_info.txt")
 writeLines(capture.output(sessionInfo()), session_info_path)
-message("✅ Session info saved to: ", session_info_path)
 
-```
+message("✅ Files saved:")
+message("   - ", basename(output_path))
+message("   - ", basename(session_info_path))
 
-
-###  final-check
-```{r}
-#| label: final-check
-#| echo: true
-
-# Quick validation
-cat("\n=== Quick Validation ===\n")
-cat("TSE file exists: ", file.exists(output_path), "\n")
-
+# 5.3.3 Reload and validate
 tse_reload <- readRDS(output_path)
-cat("Reloaded TSE dimensions: ", nrow(tse_reload), " × ", ncol(tse_reload), "\n")
-cat("Assays: ", paste(names(assays(tse_reload)), collapse = ", "), "\n")
-cat("Metadata components: ", length(metadata(tse_reload)), "\n")
-cat("AMG table in metadata: ", "amg_dramv" %in% names(metadata(tse_reload)), "\n")
-cat("Host edges in metadata: ", "host_genus_edges" %in% names(metadata(tse_reload)), "\n")
-cat("contig_ids in rowData: ", "contig_ids" %in% colnames(rowData(tse_reload)), "\n\n")
 
-cat("✅ All checks passed! TSE is ready for downstream analysis.\n")
+# Quick validation checks
+validation_passed <- all(
+  identical(dim(tse_reload), dim(tse)),
+  identical(assayNames(tse_reload), assayNames(tse)),
+  "amg_dramv" %in% names(metadata(tse_reload)),
+  "host_genome_edges" %in% names(metadata(tse_reload)),
+  "contig_ids" %in% colnames(rowData(tse_reload)),
+  "sample_group" %in% colnames(colData(tse_reload))
+)
 
+if (validation_passed) {
+  message("✅ Validation passed: TSE ready for downstream analysis")
+} else {
+  stop("❌ Validation failed")
+}
+
+# Display final summary
+message("\n=== Final TSE Summary ===")
+message("Dimensions: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
+message("Sample groups: ", paste(levels(colData(tse)$sample_group), collapse = ", "))
+message("Assays: ", paste(assayNames(tse), collapse = ", "))
+message("rowData fields: ", ncol(rowData(tse)))
+message("Metadata tables: ", length(metadata(tse)))
 ```
-```{r}
-# Verification
-cat("\n=== Final TSE Verification ===\n")
-cat("Dimensions: ", dim(tse), "\n")
-cat("Assays: ", assayNames(tse), "\n")
-cat("Samples: ", ncol(tse), "\n")
-cat("Features: ", nrow(tse), "\n")
-cat("Sample groups in colData: ", paste(levels(colData(tse)$sample_group), collapse = ", "), "\n")
-cat("First few sample_group values:\n")
-print(head(colData(tse)$sample_group))
 
-```
-
-
-## Files written
-
-These files have been written to the target directory, `r paste0("data/", params$name)`:
-
-```{r}
-#| label: list-files-target
-#| include: false
-projthis::proj_dir_info(path_target(), tz = "CET")
-```
