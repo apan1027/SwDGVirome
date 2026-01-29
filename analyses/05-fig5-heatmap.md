@@ -1,59 +1,33 @@
----
-title: "05-fig5-heatmap"
-title-block-banner: true
-author:
-  - name: Cunli Pan
-  - name: Jinlong Ru
-date: 2025-12-20
-toc: true
-toc-depth: 4
-number-sections: true
-code-fold: true
-code-line-numbers: true
-code-tools: true
-format:
-  gfm: default
-reference-location: section
-citation-location: document
-params:
-  name: "05-fig5-heatmap"
----
+# 05-fig5-heatmap
+Cunli Pan, Jinlong Ru
+2025-12-20
 
-**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+- [<span class="toc-section-number">1</span> Tasks](#tasks)
+  - [<span class="toc-section-number">1.1</span> Task 1:
+    Data-extraction](#task-1-data-extraction)
+  - [<span class="toc-section-number">1.2</span> Task 2: Annotate
+    KEGG](#task-2-annotate-kegg)
+  - [<span class="toc-section-number">1.3</span> Task 3:
+    Pathway-split-classify](#task-3-pathway-split-classify)
+  - [<span class="toc-section-number">1.4</span> Task 4: Merge TPM and
+    Metadata](#task-4-merge-tpm-and-metadata)
+  - [<span class="toc-section-number">1.5</span> Task 5: Deduplicate and
+    Calculate TPM](#task-5-deduplicate-and-calculate-tpm)
+  - [<span class="toc-section-number">1.6</span> Task 6: Plot Pathway
+    Heatmap](#task-6-plot-pathway-heatmap)
+  - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
+    Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-The purpose of this document is to construct and visualize a heatmap of viral functional potential based on KEGG orthology (KO) and pathway annotations to infer metabolic capabilities of the viral community.
+**Updated: 2026-01-29 17:22:37 CET.**
 
-```{r}
-#| label: params
-#| eval: !expr interactive()
-#| include: false
-params = list(name = "05-fig5-heatmap")
-```
+The purpose of this document is to construct and visualize a heatmap of
+viral functional potential based on KEGG orthology (KO) and pathway
+annotations to infer metabolic capabilities of the viral community.
 
-```{r}
-#| label: setup
-#| message: false
-#| include: false
-#| warning: false
-wd <- "analyses"
-if (basename(getwd()) != wd) {
-  setwd(here::here(wd))
-}
-here::i_am(paste0(params$name, ".qmd"), uuid = "008e69a8-ea7d-4750-9b7b-10b076a2b11a")
-projthis::proj_create_dir_target(params$name, clean = FALSE)
-path_target <- projthis::proj_path_target(params$name)
-path_source <- projthis::proj_path_source(params$name)
-path_raw <- path_source("00-raw")
-path_resource <- here::here(path_raw, "d00-resource")
-path_data <- here::here(path_raw, paste0("d", params$name))
-dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
-dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
-dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
-```
+<details class="code-fold">
+<summary>Code</summary>
 
-```{r}
-#| label: packages
-#| message: false
+``` r
 suppressPackageStartupMessages({
   library(here)
   library(tidyverse)
@@ -71,20 +45,32 @@ suppressPackageStartupMessages({
 
 # Load package utility functions
 devtools::load_all(here::here())
-
 ```
+
+</details>
 
 ## Tasks
 
 ### Task 1: Data-extraction
 
-```{r}
-#| label: data-extraction
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # ============================================================================
 # STEP 1: 从TSE加载数据
 # ============================================================================
 cat("Part 1: Loading TSE object...\n\n")
+```
 
+</details>
+
+    Part 1: Loading TSE object...
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 tse_path <- here::here("data", "01-tse-construction", "tse.rds")
 
 
@@ -97,23 +83,75 @@ amg_dramv <- metadata(tse)$amg_dramv
 amg_vibrant <- metadata(tse)$amg_vibrant
 
 message("✅ Extracted AMG data:")
-message("   DRAM-v: ", nrow(amg_dramv), " rows × ", ncol(amg_dramv), " cols")
-message("   VIBRANT: ", nrow(amg_vibrant), " rows × ", ncol(amg_vibrant), " cols")
+```
 
+</details>
+
+    ✅ Extracted AMG data:
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message("   DRAM-v: ", nrow(amg_dramv), " rows × ", ncol(amg_dramv), " cols")
+```
+
+</details>
+
+       DRAM-v: 89 rows × 19 cols
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message("   VIBRANT: ", nrow(amg_vibrant), " rows × ", ncol(amg_vibrant), " cols")
+```
+
+</details>
+
+       VIBRANT: 186 rows × 9 cols
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Check key columns
 message("   DRAM-v columns: ", paste(head(colnames(amg_dramv), 5), collapse = ", "), "...")
-message("   VIBRANT columns: ", paste(head(colnames(amg_vibrant), 5), collapse = ", "), "...")
+```
 
+</details>
+
+       DRAM-v columns: vOTU_id, contig_id, protein_id, dbid, db_desc...
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message("   VIBRANT columns: ", paste(head(colnames(amg_vibrant), 5), collapse = ", "), "...")
+```
+
+</details>
+
+       VIBRANT columns: vOTU_id, contig_id, protein_id, dbid, db_desc...
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 message("\n✅ Task 1 完成！\n")
 ```
 
+</details>
+
+
+    ✅ Task 1 完成！
+
 ### Task 2: Annotate KEGG
 
-```{r}
-#| label: annotate-kegg
-#| message: true
-#| warning: false
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 message("=== Annotate AMG Genes with KEGG ===")
 
 # Extract unique dbids
@@ -153,17 +191,16 @@ write.xlsx(dramv_annotated, path_target("dramv_with_annotations.xlsx"))
 write.xlsx(vibrant_annotated, path_target("vibrant_with_annotations.xlsx"))
 
 message("✅ Task 2 completed")
-
 ```
 
+</details>
 
 ### Task 3: Pathway-split-classify
 
-```{r}
-#| label: pathway-split-classify
-#| message: true
-#| warning: false
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 message("=== Pathway Splitting and Classification ===")
 
 # Read annotated AMG tables
@@ -250,19 +287,33 @@ message("Saved: pathway_classification_reference.xlsx")
 message("\nFinal statistics:")
 message("  Successful queries: ", sum(!str_starts(pathway_annotations$Pathway_Name, "Unknown")), "/", total_ids)
 print(table(pathway_annotations$Pathway_Top_Category))
-
-message("\n=== Task 3 completed ===\n")
-
 ```
 
+</details>
+
+
+                      Cellular Processes Environmental Information Processing 
+                                       3                                    3 
+          Genetic Information Processing                       Human Diseases 
+                                       2                                    7 
+                              Metabolism                   Organismal Systems 
+                                      54                                    5 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message("\n=== Task 3 completed ===\n")
+```
+
+</details>
 
 ### Task 4: Merge TPM and Metadata
 
-```{r}
-#| label: merge-tpm-metadata
-#| message: true
-#| warning: false
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 message("=== Merge TPM and Metadata ===")
 
 # Extract TPM matrix from TSE
@@ -294,14 +345,14 @@ write.xlsx(final_df, path_target("full_merged_pathway_table.xlsx"))
 message("✅ Task 4 completed")
 ```
 
+</details>
 
 ### Task 5: Deduplicate and Calculate TPM
 
-```{r}
-#| label: dedup-calculate-tpm
-#| message: true
-#| warning: false
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 message("=== Deduplicate and Calculate Pathway Total TPM ===")
 
 # Read full merged table
@@ -345,16 +396,14 @@ write.xlsx(final_df_stats, path_target("heatmap_matrix_with_pathway_group.xlsx")
 message("✅ Task 5 completed")
 ```
 
+</details>
 
 ### Task 6: Plot Pathway Heatmap
 
-```{r}
-#| label: plot-pathway-heatmap
-#| message: true
-#| warning: false
-#| fig.width: 10
-#| fig.height: 12
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 message("=== Plot Pathway Heatmap ===")
 
 # Read data
@@ -436,20 +485,59 @@ ht <- Heatmap(
 )
 
 draw(ht)
+```
 
+</details>
+
+![](05-fig5-heatmap_files/figure-commonmark/plot-pathway-heatmap-1.png)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save figures
 png(path_target("Fig5_pathway_heatmap.png"), width = 1000, height = 1000, res = 120)
 draw(ht)
 dev.off()
+```
 
+</details>
+
+    quartz_off_screen 
+                    2 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 pdf(path_target("Fig5_pathway_heatmap.pdf"), width = 12, height = 16)
 draw(ht)
 dev.off()
+```
 
+</details>
+
+    quartz_off_screen 
+                    2 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 png(path_target("Fig5_pathway_heatmap_highres.png"), width = 3600, height = 4800, res = 300)
 draw(ht)
 dev.off()
+```
 
+</details>
+
+    quartz_off_screen 
+                    2 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save data
 write.csv(df_heatmap %>% rownames_to_column("Pathway_Short"),
           path_target("log10_TPM_heatmap_matrix.csv"), row.names = FALSE)
@@ -457,16 +545,14 @@ write.csv(df_heatmap %>% rownames_to_column("Pathway_Short"),
 message("✅ Task 6 completed")
 ```
 
-
+</details>
 
 ### Task 7: Plot Top 20 AMG Heatmap
-```{r}
-#| label: plot-amg-heatmap-total
-#| message: true
-#| warning: false
-#| fig.width: 8
-#| fig.height: 10
 
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 message("=== Plot Top 20 AMG Gene Heatmap (Total TPM) ===")
 
 # Read deduplicated pathway table
@@ -563,7 +649,16 @@ p_amg_total <- pheatmap::pheatmap(
   cellheight = 12,
   border_color = "gray80"
 )
+```
 
+</details>
+
+![](05-fig5-heatmap_files/figure-commonmark/plot-amg-heatmap-total-1.png)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save figures
 ggsave(path_target("Fig5b_top20_AMG_heatmap.png"),
        plot = p_amg_total, width = 8, height = 10, dpi = 300)
@@ -576,7 +671,6 @@ write.csv(gene_log_matrix_total %>% rownames_to_column("Gene"),
 write.xlsx(gene_top20_total, path_target("top20_AMG_total_corrected.xlsx"))
 
 message("✅ Task 7 completed")
-
-
 ```
 
+</details>

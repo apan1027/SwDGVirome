@@ -1,57 +1,23 @@
----
-title: "11-figS6-amg-DA"
-title-block-banner: true
-author:
-  - name: Cunli Pan
-  - name: Jinlong Ru
-date: 2025-12-20
-toc: true
-toc-depth: 4
-number-sections: true
-code-fold: true
-code-line-numbers: true
-code-tools: true
-format:
-  gfm: default
-reference-location: section
-citation-location: document
-params:
-  name: "11-figS6-amg-DA"
----
+# 11-figS6-amg-DA
+Cunli Pan, Jinlong Ru
+2025-12-20
 
-**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+- [<span class="toc-section-number">1</span> Tasks](#tasks)
+  - [<span class="toc-section-number">1.1</span> Task 1: Plot Top 20 AMG
+    Heatmap (Ranked by
+    DA)](#task-1-plot-top-20-amg-heatmap-ranked-by-da)
 
-The purpose of this document is to identify differentially abundant auxiliary metabolic genes (AMGs) across sampling depths, visualizing their enrichment patterns to infer environment-specific metabolic adaptations.
+**Updated: 2026-01-29 17:30:50 CET.**
 
-```{r}
-#| label: params
-#| eval: !expr interactive()
-#| include: false
-params = list(name = "11-figS6-amg-DA")
-```
+The purpose of this document is to identify differentially abundant
+auxiliary metabolic genes (AMGs) across sampling depths, visualizing
+their enrichment patterns to infer environment-specific metabolic
+adaptations.
 
-```{r}
-#| label: setup
-#| message: false
-#| include: false
-#| warning: false
-wd <- "analyses"
-if (basename(getwd()) != wd) {
-  setwd(here::here(wd))
-}
-here::i_am(paste0(params$name, ".qmd"), uuid = "ee61afbe-a077-4910-9d6a-35bacc1115ab")
-projthis::proj_create_dir_target(params$name, clean = FALSE)
-path_target <- projthis::proj_path_target(params$name)
-path_source <- projthis::proj_path_source(params$name)
-path_raw <- path_source("00-raw")
-path_resource <- here::here(path_raw, "d00-resource")
-path_data <- here::here(path_raw, paste0("d", params$name))
-dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
-dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
-dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
-```
+<details class="code-fold">
+<summary>Code</summary>
 
-```{r}
+``` r
 suppressPackageStartupMessages({
   library(here)
   library(tidyverse)
@@ -64,15 +30,18 @@ suppressPackageStartupMessages({
 devtools::load_all(here::here())
 ```
 
+</details>
+
+    ℹ Loading SwDGVirome
+
 ## Tasks
 
 ### Task 1: Plot Top 20 AMG Heatmap (Ranked by DA)
 
-```{r}
-#| label: plot-amg-heatmap-da
-#| fig.width: 8
-#| fig.height: 10
+<details class="code-fold">
+<summary>Code</summary>
 
+``` r
 # Read deduplicated pathway table from 05-fig5-heatmap
 dedup_path <- path_source("05-fig5-heatmap", "deduplicated_pathway_table.xlsx")
 
@@ -89,7 +58,16 @@ df_clean <- df %>%
   dplyr::distinct()
 
 message("Clean data: ", nrow(df_clean), " rows")
+```
 
+</details>
+
+    Clean data: 992 rows
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Special gene name mapping (same as Fig5b)
 special_map <- tibble::tribble(
   ~dbid, ~gene_symbol,
@@ -137,7 +115,16 @@ gene_top20_da <- gene_matrix %>%
   dplyr::slice_head(n = 20)
 
 message("Top 20 AMG genes (ranked by DA TPM)")
+```
 
+</details>
+
+    Top 20 AMG genes (ranked by DA TPM)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # log10 transformation
 gene_log_matrix_da <- gene_top20_da %>%
   dplyr::select(gene_symbol, all_of(available_samples)) %>%
@@ -171,7 +158,16 @@ p_amg_da <- pheatmap::pheatmap(
   cellheight = 12,
   border_color = "gray80"
 )
+```
 
+</details>
+
+![](11-figS6-amg-DA_files/figure-commonmark/plot-amg-heatmap-da-1.png)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save figures
 ggsave(path_target("FigS6_top20_AMG_DA_heatmap.png"),
        plot = p_amg_da, width = 8, height = 10, dpi = 300)
@@ -192,8 +188,8 @@ openxlsx::write.xlsx(
 )
 
 message("✅ FigS6 completed: ", nrow(gene_log_matrix_da), " genes")
-
 ```
 
+</details>
 
-
+    ✅ FigS6 completed: 20 genes
