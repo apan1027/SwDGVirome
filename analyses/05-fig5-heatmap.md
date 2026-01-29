@@ -18,7 +18,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
     Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-**Updated: 2026-01-29 15:43:16 CET.**
+**Updated: 2026-01-29 17:22:37 CET.**
 
 The purpose of this document is to construct and visualize a heatmap of
 viral functional potential based on KEGG orthology (KO) and pathway
@@ -570,7 +570,7 @@ message("Clean data: ", nrow(df_clean), " rows")
 special_map <- tribble(
   ~dbid, ~gene_symbol,
   "K00525", "nrdA",
-  "EC:1.17.4.1", "nrdA",
+  "EC:1.17.4.1", "RNR",
   "K00973", "rfbA",
   "K01710", "rfbB",
   "K00560", "thyA",

@@ -7,7 +7,7 @@ Cunli Pan, Jinlong Ru
     Heatmap (Ranked by
     DA)](#task-1-plot-top-20-amg-heatmap-ranked-by-da)
 
-**Updated: 2026-01-29 15:48:21 CET.**
+**Updated: 2026-01-29 17:30:50 CET.**
 
 The purpose of this document is to identify differentially abundant
 auxiliary metabolic genes (AMGs) across sampling depths, visualizing
@@ -72,7 +72,7 @@ message("Clean data: ", nrow(df_clean), " rows")
 special_map <- tibble::tribble(
   ~dbid, ~gene_symbol,
   "K00525", "nrdA",
-  "EC:1.17.4.1", "nrdA",
+  "EC:1.17.4.1", "RNR",
   "K00973", "rfbA",
   "K01710", "rfbB",
   "K00560", "thyA",
