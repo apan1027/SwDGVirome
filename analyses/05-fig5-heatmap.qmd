@@ -2,8 +2,8 @@
 title: "05-fig5-heatmap"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to construct and visualize a heatmap of viral functional potential based on KEGG orthology (KO) and pathway annotations to infer metabolic capabilities of the viral community.
 
 ```{r}
 #| label: params
@@ -61,26 +58,23 @@ suppressPackageStartupMessages({
   library(here)
   library(tidyverse)
   library(TreeSummarizedExperiment)
-  library(ComplexHeatmap)     
-  library(circlize)            
+  library(ComplexHeatmap)
+  library(circlize)
   library(KEGGREST)
   library(openxlsx)
   library(progress)
   library(viridis)
-   library(RColorBrewer)  
-  library(pheatmap)   
-  
+   library(RColorBrewer)
+  library(pheatmap)
+
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 
 ```
 
 ## Tasks
-
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
 
 ### Task 1: Data-extraction
 
@@ -141,50 +135,7 @@ all_ids <- bind_rows(dramv_ids, vibrant_ids) %>%
 message("Total unique dbids: ", nrow(all_ids))
 
 # KEGG annotation function
-get_kegg_info <- function(id) {
-  # KO number (Kxxxxx)
-  if (str_detect(id, "^K\\d{5}")) {
-    entry <- tryCatch(keggGet(id)[[1]], error = function(e) NULL)
-    if (!is.null(entry)) {
-      return(tibble(
-        dbid = id,
-        db_type = "KEGG_KO",
-        Name = entry$NAME[1] %||% NA_character_,
-        Definition = entry$DEFINITION %||% NA_character_,
-        Pathway = if (!is.null(entry$PATHWAY)) paste(names(entry$PATHWAY), collapse = "; ") else NA_character_,
-        Module = if (!is.null(entry$MODULE)) paste(names(entry$MODULE), collapse = "; ") else NA_character_,
-        Class = if (!is.null(entry$CLASS)) paste(entry$CLASS, collapse = "; ") else NA_character_
-      ))
-    }
-  }
-
-  # EC number (x.x.x.x)
-  if (str_detect(id, "^\\d+\\.\\d+\\.\\d+\\.\\d+")) {
-    entry <- tryCatch(keggGet(paste0("ec:", id))[[1]], error = function(e) NULL)
-    if (!is.null(entry)) {
-      return(tibble(
-        dbid = id,
-        db_type = "EC_Number",
-        Name = entry$NAME[1] %||% NA_character_,
-        Definition = entry$DEFINITION %||% NA_character_,
-        Pathway = if (!is.null(entry$PATHWAY)) paste(names(entry$PATHWAY), collapse = "; ") else NA_character_,
-        Module = NA_character_,
-        Class = NA_character_
-      ))
-    }
-  }
-
-  # Unknown ID
-  return(tibble(
-    dbid = id,
-    db_type = "Other_DB",
-    Name = NA_character_,
-    Definition = NA_character_,
-    Pathway = NA_character_,
-    Module = NA_character_,
-    Class = NA_character_
-  ))
-}
+# Using get_kegg_info() from R/utils.R
 
 # Annotate all dbids
 annotations <- purrr::map_dfr(all_ids$dbid, get_kegg_info)
@@ -253,77 +204,7 @@ total_ids <- length(pathway_ids)
 message("Unique pathways to query: ", total_ids)
 
 # KEGG pathway query function
-get_pathway_info <- function(map_id, index, total) {
-  message(sprintf("[%d/%d] Querying: %s", index, total, map_id))
-
-  tryCatch({
-    entry <- keggGet(map_id)[[1]]
-    name <- ifelse(!is.null(entry$NAME), paste(entry$NAME, collapse = "; "), NA)
-    full_class <- ifelse(!is.null(entry$CLASS), paste(entry$CLASS, collapse = "; "), NA)
-
-    # Seven major KEGG categories with hardcoded 1.0 Global maps
-    top_class <- case_when(
-      # Global and overview maps (all belong to Metabolism)
-      map_id %in% c(
-        "map01100",  # Metabolic pathways
-        "map01110",  # Biosynthesis of secondary metabolites
-        "map01120",  # Microbial metabolism in diverse environments
-        "map01200",  # Carbon metabolism
-        "map01210",  # 2-Oxocarboxylic acid metabolism
-        "map01212",  # Fatty acid metabolism
-        "map01230",  # Biosynthesis of amino acids
-        "map01232",  # Nucleotide metabolism
-        "map01250",  # Biosynthesis of nucleotide sugars
-        "map01240",  # Biosynthesis of cofactors
-        "map01220",  # Degradation of aromatic compounds
-        "map01310",  # Nitrogen cycle
-        "map01320"   # Sulfur cycle
-      ) ~ "Metabolism",
-      
-      # Class-based matching
-      str_detect(full_class, "Metabolism") ~ "Metabolism",
-      str_detect(full_class, "Genetic Information") ~ "Genetic Information Processing",
-      str_detect(full_class, "Environmental Information") ~ "Environmental Information Processing",
-      str_detect(full_class, "Cellular Processes") ~ "Cellular Processes",
-      str_detect(full_class, "Organismal Systems") ~ "Organismal Systems",
-      str_detect(full_class, "Human Diseases") ~ "Human Diseases",
-      str_detect(full_class, "Drug Development") ~ "Drug Development",
-      TRUE ~ "Other"
-    )
-
-    message(sprintf("  Success: %s -> %s", name, top_class))
-
-    tibble(
-      Pathway_ID = map_id,
-      Pathway_Name = name,
-      Pathway_Class = full_class,
-      Pathway_Top_Category = top_class
-    )
-
-  }, error = function(e) {
-    # Fallback: classify by pathway ID prefix
-    prefix <- substr(map_id, 4, 5)
-    top_class <- case_when(
-      prefix == "01" ~ "Metabolism",
-      prefix == "02" ~ "Genetic Information Processing",
-      prefix == "03" ~ "Environmental Information Processing",
-      prefix == "04" ~ "Cellular Processes",
-      prefix == "05" ~ "Organismal Systems",
-      prefix == "06" ~ "Human Diseases",
-      prefix == "07" ~ "Drug Development",
-      TRUE ~ "Other"
-    )
-
-    message(sprintf("  Failed: %s -> Fallback: %s", e$message, top_class))
-
-    tibble(
-      Pathway_ID = map_id,
-      Pathway_Name = paste("Unknown", map_id),
-      Pathway_Class = NA_character_,
-      Pathway_Top_Category = top_class
-    )
-  })
-}
+# Using get_pathway_info() from R/utils.R
 
 # Batch query KEGG API
 message("Starting batch KEGG query...")
@@ -397,7 +278,7 @@ tpm_long <- tpm_matrix %>%
 # Merge sample metadata
 tpm_long_meta <- tpm_long %>%
   dplyr::left_join(sample_meta, by = "sample_id") %>%
-   mutate(sample_group = as.character(sample_group)) 
+   mutate(sample_group = as.character(sample_group))
 
 # Read pathway table
 long_pathway <- read.xlsx(path_target("long_pathway_with_annotation.xlsx"))
@@ -428,7 +309,7 @@ full_df <- read.xlsx(path_target("full_merged_pathway_table.xlsx"))
 
 # Deduplicate
 deduplicated_df <- full_df %>%
-  arrange(vOTU_id, dbid, Pathway_ID, sample_id, 
+  arrange(vOTU_id, dbid, Pathway_ID, sample_id,
           match(Source, c("DRAM-v", "VIBRANT"))) %>%
   dplyr::distinct(vOTU_id, dbid, Pathway_ID, sample_id, .keep_all = TRUE)
 
@@ -439,7 +320,7 @@ write.xlsx(deduplicated_df, path_target("deduplicated_pathway_table.xlsx"))
 filtered_df <- deduplicated_df %>%
   dplyr::filter(!is.na(Pathway_ID), !is.na(Pathway_Name), !is.na(sample_group)) %>%
   dplyr::filter(!is.na(TPM)) %>%
-  mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"), 
+  mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"),
                                  "Metabolism", "Other"))
 
 message("Valid pathway rows: ", nrow(filtered_df))
@@ -523,18 +404,18 @@ ht <- Heatmap(
   cluster_columns = FALSE,
   width = unit(10, "cm"),
   height = unit(18, "cm"),
-  
+
   row_names_side = "left",
   row_names_gp = gpar(fontsize = 9, fontfamily = "Times", col = label_colors),
   row_names_max_width = unit(7, "cm"),
-  
+
   show_column_names = TRUE,
   column_names_side = "bottom",
   column_names_rot = 0,
   column_names_gp = gpar(fontsize = 18, fontfamily = "Times", fontface = "plain"),
-  
+
   border = TRUE,
-  
+
   heatmap_legend_param = list(
     title = NULL,
     at = 0:6,
@@ -544,10 +425,10 @@ ht <- Heatmap(
     grid_height = unit(0.3, "cm"),
     labels_gp = gpar(fontsize = 10, fontfamily = "Times")
   ),
-  
+
   column_title = "Pathway Abundance Across Samples (log10(TPM + 1))",
   column_title_gp = gpar(fontsize = 12, fontfamily = "Times", fontface = "bold"),
-  
+
   cell_fun = function(j, i, x, y, width, height, fill) {
     grid.rect(x, y, width, height,
               gp = gpar(col = "white", fill = NA, lwd = 0.3))
@@ -602,8 +483,8 @@ message("Clean data: ", nrow(df_clean), " rows")
 # Special gene name mapping
 special_map <- tribble(
   ~dbid, ~gene_symbol,
-  "K00525", "nrdB",
-  "EC:1.17.4.1", "nrdB",
+  "K00525", "nrdA",
+  "EC:1.17.4.1", "nrdA",
   "K00973", "rfbA",
   "K01710", "rfbB",
   "K00560", "thyA",
@@ -684,9 +565,9 @@ p_amg_total <- pheatmap::pheatmap(
 )
 
 # Save figures
-ggsave(path_target("Fig5b_top20_AMG_heatmap.png"), 
+ggsave(path_target("Fig5b_top20_AMG_heatmap.png"),
        plot = p_amg_total, width = 8, height = 10, dpi = 300)
-ggsave(path_target("Fig5b_top20_AMG_heatmap.pdf"), 
+ggsave(path_target("Fig5b_top20_AMG_heatmap.pdf"),
        plot = p_amg_total, width = 8, height = 10)
 
 # Save data

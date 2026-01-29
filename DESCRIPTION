@@ -1,16 +1,63 @@
-Package: p0057projthis
-Type: Package
-Title: What the Package Does (Title Case)
+Package: SwDGVirome
+Title: Depth Stratifies Viral Survival Strategies in a Deep Granitic
+    Aquifer
 Version: 0.1.0
 Authors@R: c(
-    person(
-      "Jane", "Doe",
-      email = "jane@example.com",
-      role = c("aut", "cre")
-    )
+    person("Jinlong", "Ru", , "jinlong.ru@tum.com", role = c("cre", "aut"),
+           comment = c(ORCID = "0000-0002-6757-6018")),
+    person("Cunli", "Pan", , "cunli.pan@tum.de", role = "aut")
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: This repository contains the analytical workflow for
+    investigating depth-associated stratification of viral communities
+    (0–450 m) in deep groundwater at the Äspö Hard Rock Laboratory
+    (Sweden).
+License: GPL (>= 3)
+URL: https://github.com/apan1027/SwDGVirome
+BugReports: https://github.com/apan1027/SwDGVirome/issues
+Depends:
+    R (>= 4.2)
+Imports:
+    base,
+    circlize,
+    ComplexHeatmap,
+    cowplot,
+    data.table,
+    DBI,
+    devtools,
+    dplyr,
+    forcats,
+    ggplot2,
+    ggrepel,
+    grDevices,
+    grid,
+    gridExtra,
+    here,
+    IRanges,
+    KEGGREST,
+    mia,
+    openxlsx,
+    patchwork,
+    pheatmap,
+    progress,
+    purrr,
+    RColorBrewer,
+    rmarkdown,
+    RSQLite,
+    S4Vectors,
+    scales,
+    scater,
+    shiny,
+    stringr,
+    SummarizedExperiment,
+    tibble,
+    tidyr,
+    tidyverse,
+    TreeSummarizedExperiment,
+    vegan,
+    VennDiagram,
+    viridis
+Remotes:
+    rujinlong/projthis@aff52fb
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 7.3.3

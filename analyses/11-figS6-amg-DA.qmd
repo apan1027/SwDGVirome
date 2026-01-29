@@ -2,8 +2,8 @@
 title: "11-figS6-amg-DA"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to identify differentially abundant auxiliary metabolic genes (AMGs) across sampling depths, visualizing their enrichment patterns to infer environment-specific metabolic adaptations.
 
 ```{r}
 #| label: params
@@ -62,17 +59,12 @@ suppressPackageStartupMessages({
   library(RColorBrewer)
   library(openxlsx)
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 ```
 
 ## Tasks
-
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
-
-
 
 ### Task 1: Plot Top 20 AMG Heatmap (Ranked by DA)
 
@@ -101,8 +93,8 @@ message("Clean data: ", nrow(df_clean), " rows")
 # Special gene name mapping (same as Fig5b)
 special_map <- tibble::tribble(
   ~dbid, ~gene_symbol,
-  "K00525", "nrdB",
-  "EC:1.17.4.1", "nrdB",
+  "K00525", "nrdA",
+  "EC:1.17.4.1", "nrdA",
   "K00973", "rfbA",
   "K01710", "rfbB",
   "K00560", "thyA",
@@ -181,21 +173,21 @@ p_amg_da <- pheatmap::pheatmap(
 )
 
 # Save figures
-ggsave(path_target("FigS6_top20_AMG_DA_heatmap.png"), 
+ggsave(path_target("FigS6_top20_AMG_DA_heatmap.png"),
        plot = p_amg_da, width = 8, height = 10, dpi = 300)
-ggsave(path_target("FigS6_top20_AMG_DA_heatmap.pdf"), 
+ggsave(path_target("FigS6_top20_AMG_DA_heatmap.pdf"),
        plot = p_amg_da, width = 8, height = 10)
 
 # Save data
 write.csv(
   gene_log_matrix_da %>% tibble::rownames_to_column("Gene"),
-  path_target("top20_AMG_DA_log10TPM_matrix.csv"), 
+  path_target("top20_AMG_DA_log10TPM_matrix.csv"),
   row.names = FALSE
 )
 
 openxlsx::write.xlsx(
-  gene_top20_da, 
-  path_target("top20_AMG_DA_raw.xlsx"), 
+  gene_top20_da,
+  path_target("top20_AMG_DA_raw.xlsx"),
   rowNames = FALSE
 )
 

@@ -2,8 +2,8 @@
 title: "02-fig2-viral diversity"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to analyze and visualize viral alpha and beta diversity across different sample groups (depths), utilizing rarefaction curves, Venn diagrams, and taxonomic composition bar plots to reveal community structural differences.
 
 ```{r}
 #| label: params
@@ -61,16 +58,16 @@ dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
 
 suppressPackageStartupMessages({
   library(here)
-  
-  # TreeSE and mia ecosystem 
+
+  # TreeSE and mia ecosystem
   library(TreeSummarizedExperiment)
   library(mia)
   library(scater)
-  
-  # Tidyverse 
+
+  # Tidyverse
   library(tidyverse)
   library(data.table)
-  
+
   # Visualization
   library(ggplot2)
   library(patchwork)
@@ -78,21 +75,18 @@ suppressPackageStartupMessages({
   library(RColorBrewer)
   library(VennDiagram)
   library(ggrepel)
-  
+
   # Diversity analysis
   library(vegan)
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 
 
 ```
 
 ## Tasks
-
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
 
 ### Load TSE + Define Theme
 
@@ -116,21 +110,7 @@ sample_colors <- c(
 )
 
 # Consistent theme for all Figure 2 panels
-theme_fig2 <- function() {
-  theme_minimal(base_size = 22) +
-    theme(
-      text = element_text(family = "Times"),
-      axis.line = element_line(color = "black", linewidth = 1),
-      axis.ticks = element_line(color = "black", linewidth = 0.8),
-      axis.text = element_text(color = "black", size = 20, family = "Times"),
-      axis.title = element_text(size = 23, face = "plain", family = "Times"),
-      axis.title.x = element_blank(),
-      panel.grid = element_blank(),
-      legend.text = element_text(size = 10, family = "Times"),
-      legend.title = element_text(size = 12, face = "bold", family = "Times"),
-      plot.margin = margin(15, 20, 10, 10)
-    )
-}
+# Using theme_fig2() from R/utils.R
 ```
 ### Figure 2a - Viral Family Composition
 ```{r}
@@ -214,7 +194,7 @@ p_fig2a <- ggplot(plot_data, aes(x = sample_group, y = rel_abund, fill = family_
   labs(x = NULL, y = "Relative sequence abundance", fill = "Virus Family") +
   theme_fig2() +
   theme(
-    axis.title.y = element_text(size = 23, face = "plain"),
+    axis.title.y = element_text(size = 25, face = "plain"),
     legend.position = "right",
     legend.text = element_text(size = 10, face = "italic"),
     legend.key.size = unit(0.4, "cm"),
@@ -233,6 +213,7 @@ message("✅ Figure 2a completed")
 
 
 ### Figure 2b - Rarefaction Curves
+per-group rarefaction curves with end-point labels
 ```{r}
 #| label: fig2b-rarefaction
 #| message: true
@@ -245,59 +226,8 @@ message("📊 Figure 2b: Rarefaction Curves")
 # Extract count data
 count_mat <- assays(tse)$counts
 
-# Calculate rarefaction curves (optimized version)
-calculate_rarefaction <- function(count_mat, n_points = 20, max_depth = 50000) {
-  results <- list()
-  
-  for (i in 1:ncol(count_mat)) {
-    sample_id <- colnames(count_mat)[i]
-    sample_counts <- count_mat[, i]
-    sample_counts <- sample_counts[sample_counts > 0]
-    
-    if (length(sample_counts) == 0) next
-    
-    total_reads <- sum(sample_counts)
-    if (total_reads < 100) next
-    
-    max_sampling_depth <- min(total_reads, max_depth)
-    
-    # Use logarithmic spacing
-    if (max_sampling_depth <= 1000) {
-      depths <- seq(100, max_sampling_depth, length.out = n_points)
-    } else {
-      depths <- unique(round(exp(seq(log(100), log(max_sampling_depth), length.out = n_points))))
-      if (!max_sampling_depth %in% depths) {
-        depths <- c(depths, max_sampling_depth)
-      }
-    }
-    
-    # Calculate diversity metrics at each depth
-    chao1_values <- numeric(length(depths))
-    shannon_values <- numeric(length(depths))
-    observed_richness <- numeric(length(depths))
-    
-    for (j in 1:length(depths)) {
-      depth <- depths[j]
-      rarefied_sample <- vegan::rrarefy(sample_counts, depth)
-      
-      observed_richness[j] <- sum(rarefied_sample > 0)
-      chao1_estimate <- vegan::estimateR(rarefied_sample)
-      chao1_values[j] <- chao1_estimate[1]
-      shannon_values[j] <- vegan::diversity(rarefied_sample, index = "shannon")
-    }
-    
-    results[[sample_id]] <- data.frame(
-      sample_id = sample_id,
-      sequencing_depth = depths,
-      observed_richness = observed_richness,
-      chao1_richness = chao1_values,
-      shannon_diversity = shannon_values,
-      stringsAsFactors = FALSE
-    )
-  }
-  
-  bind_rows(results)
-}
+# Calculate rarefaction curves
+# Using calculate_rarefaction() from R/utils.R
 
 # Run rarefaction
 rarefaction_data <- calculate_rarefaction(count_mat, n_points = 20, max_depth = 50000)
@@ -312,42 +242,109 @@ rarefaction_data <- rarefaction_data %>%
     by = "sample_id"
   )
 
-# Plot 1: Chao1 richness
-plot_chao1 <- ggplot(rarefaction_data,
-                     aes(x = sequencing_depth, y = chao1_richness,
-                         color = sample_group, group = sample_group)) +
-  geom_line(size = 0.8) +
-  geom_point(size = 2, alpha = 0.6) +
-  scale_color_manual(values = sample_colors) +
-  scale_x_continuous(labels = scales::comma) +
-  labs(
-    x = "Sequencing depth",
-    y = "Viral richness",
-    color = "Sample"
-  ) +
-  theme_fig2() +
-  theme(
-    axis.title.x = element_text(size = 23, face = "plain"),
-    legend.position = "right"
+# ===== label positions at the right end =====
+label_positions <- rarefaction_data %>%
+  dplyr::group_by(sample_group) %>%
+  dplyr::filter(sequencing_depth == max(sequencing_depth)) %>%
+  dplyr::summarise(
+    sequencing_depth  = max(sequencing_depth),
+    chao1_richness    = chao1_richness[which.max(sequencing_depth)],
+    shannon_diversity = shannon_diversity[which.max(sequencing_depth)],
+    .groups = "drop"
   )
 
-# Plot 2: Shannon diversity
-plot_shannon <- ggplot(rarefaction_data,
-                       aes(x = sequencing_depth, y = shannon_diversity,
-                           color = sample_group, group = sample_group)) +
+# Chao1: vertical offset only for IA / DA
+label_positions_chao1 <- label_positions %>%
+  dplyr::mutate(
+    chao1_y_adj = dplyr::case_when(
+      sample_group == "IA" ~ chao1_richness + 0.04 * max(chao1_richness, na.rm = TRUE),
+      sample_group == "DA" ~ chao1_richness - 0.04 * max(chao1_richness, na.rm = TRUE),
+      TRUE ~ chao1_richness
+    )
+  )
+
+# ===== Plot 1: Chao1 richness =====
+plot_chao1 <- ggplot(
+  rarefaction_data,
+  aes(
+    x = sequencing_depth,
+    y = chao1_richness,
+    color = sample_group,
+    group = sample_group
+  )
+) +
   geom_line(size = 0.8) +
   geom_point(size = 2, alpha = 0.6) +
-  scale_color_manual(values = sample_colors) +
-  scale_x_continuous(labels = scales::comma) +
+  geom_text(
+    data = label_positions_chao1,
+    aes(
+      x = sequencing_depth,
+      y = chao1_y_adj,
+      label = sample_group,
+      color = sample_group
+    ),
+    hjust = -0.5,
+    size = 6,
+    family = "Times",
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = sample_colors, guide = "none") +
+  scale_x_continuous(
+    limits = c(-2000, max(rarefaction_data$sequencing_depth) * 1.10),
+    expand = c(0, 0),
+    breaks = c(0, 10000, 20000, 30000, 40000, 50000),
+    labels = scales::comma
+  ) +
   labs(
     x = "Sequencing depth",
-    y = "Viral diversity",
-    color = "Sample"
+    y = "Viral richness"
   ) +
   theme_fig2() +
   theme(
-    axis.title.x = element_text(size = 23, face = "plain"),
-    legend.position = "right"
+    axis.title.x = element_text(size = 28, face = "plain"),
+     axis.title.y = element_text(size = 28, face = "plain")
+  )
+
+# ===== Plot 2: Shannon diversity =====
+plot_shannon <- ggplot(
+  rarefaction_data,
+  aes(
+    x = sequencing_depth,
+    y = shannon_diversity,
+    color = sample_group,
+    group = sample_group
+  )
+) +
+  geom_line(size = 0.8) +
+  geom_point(size = 2, alpha = 0.6) +
+  geom_text(
+    data = label_positions,
+    aes(
+      x = sequencing_depth,
+      y = shannon_diversity,
+      label = sample_group,
+      color = sample_group
+    ),
+    hjust = -0.5,
+    size = 6,
+    family = "Times",
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = sample_colors, guide = "none") +
+  scale_x_continuous(
+    limits = c(-2000, max(rarefaction_data$sequencing_depth) * 1.10),
+    expand = c(0, 0),
+    breaks = c(0, 10000, 20000, 30000, 40000, 50000),
+    labels = scales::comma
+  ) +
+  labs(
+    x = "Sequencing depth",
+    y = "Viral diversity"
+  ) +
+  theme_fig2() +
+  theme(
+    axis.title.x = element_text(size = 28, face = "plain"),
+     axis.title.y = element_text(size = 28, face = "plain")
   )
 
 # Combine plots
@@ -360,7 +357,6 @@ ggsave(path_target("Fig2b_combined.png"), plot = p_fig2b, width = 8, height = 10
 write_csv(rarefaction_data, path_target("Fig2b_rarefaction_data.csv"))
 
 message("✅ Figure 2b completed")
-
 ```
 
 
@@ -377,11 +373,7 @@ message("📊 Figure 2c: Venn Diagram")
 tpm_mat <- assays(tse)$tpm
 
 # Get viruses present in each sample group (TPM > 0)
-get_viruses_by_group <- function(tpm_mat, sample_groups, group_name) {
-  samples <- names(sample_groups)[sample_groups == group_name]
-  group_tpm <- tpm_mat[, samples, drop = FALSE]
-  rownames(group_tpm)[rowSums(group_tpm) > 0]
-}
+# Using get_viruses_by_group() from R/utils.R
 
 sample_groups <- colData(tse)$sample_group
 names(sample_groups) <- colnames(tse)
@@ -442,10 +434,10 @@ write_csv(tibble(vOTU_id = DA_viruses), path_target("Fig2c_DA_viruses.csv"))
 write_csv(tibble(vOTU_id = all_four), path_target("Fig2c_all_four_shared.csv"))
 write_csv(tibble(vOTU_id = sa_ia_da_shared), path_target("Fig2c_SA_IA_DA_core.csv"))
 
-message("✅ Figure 2c completed (BS:", length(BS_viruses), 
+message("✅ Figure 2c completed (BS:", length(BS_viruses),
         " SA:", length(SA_viruses),
-        " IA:", length(IA_viruses), 
-        " DA:", length(DA_viruses), 
+        " IA:", length(IA_viruses),
+        " DA:", length(DA_viruses),
         " All 4:", length(all_four), ")")
 ```
 
@@ -500,7 +492,7 @@ ratio_data <- lifestyle_abundance %>%
   select(sample_group, lysogenic, lytic, lysogenic_lytic_ratio)
 
 # Create plot
-p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio, 
+p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio,
                                    color = sample_group)) +
   geom_point(size = 5, alpha = 0.8) +
   geom_line(aes(group = 1), color = "gray50", size = 0.8, linetype = "solid") +
@@ -557,7 +549,7 @@ alpha_diversity <- tibble(
   )
 
 # Create plot
-p_fig2e <- ggplot(alpha_diversity, aes(x = sample_group, y = shannon, 
+p_fig2e <- ggplot(alpha_diversity, aes(x = sample_group, y = shannon,
                                         color = sample_group)) +
   geom_point(size = 5, alpha = 0.8) +
   geom_text(aes(label = round(shannon, 2)), vjust = -1.5, size = 5,
@@ -765,9 +757,9 @@ novel_ratio <- df_novel %>%
 p_right <- ggplot(novel_ratio, aes(x = novel_ratio, y = sample_group)) +
   geom_col(fill = "#7F7F7F", alpha = 0.8, width = 0.5) +
   scale_x_continuous(
-    limits = c(0, 0.8),  
-    breaks = seq(0, 0.8, 0.2),  
-    expand = c(0, 0)  
+    limits = c(0, 0.8),
+    breaks = seq(0, 0.8, 0.2),
+    expand = c(0, 0)
   ) +
   scale_y_discrete(limits = levels(novel_ratio$sample_group)) +
   coord_cartesian(clip = "off") +

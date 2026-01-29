@@ -2,8 +2,8 @@
 title: "10-figs5-rare-patterns"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to investigate the "rare biosphere," examining the diversity, ecological drivers, and potential persistence of low-abundance viral populations.
 
 ```{r}
 #| label: params
@@ -65,15 +62,12 @@ suppressPackageStartupMessages({
   library(patchwork)
   library(scales)
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 ```
 
 ## Tasks
-
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
 
 ### Task 1: Load TSE and Extract Metadata
 
@@ -193,7 +187,7 @@ write_csv(rare_vOTUs, path_target("FigS5a_rare_full.csv"))
 message("FigS5a completed: ", nrow(rare_vOTUs), " rare vOTU-sample pairs")
 ```
 
-### Task 3: Figure S5b - Ecosystem Distribution 
+### Task 3: Figure S5b - Ecosystem Distribution
 ```{r}
 #| label: figs5b-ecosystem
 #| fig.width: 8
@@ -230,16 +224,7 @@ abundance_rare <- abundance_rel %>%
   dplyr::filter(vOTU_id %in% rare_votus_list)
 
 # Extract ecosystem classification
-extract_level5_position5 <- function(eco_string) {
-  if (is.na(eco_string) || eco_string == "") return(NA)
-  parts <- strsplit(as.character(eco_string), ";")[[1]]
-  parts <- trimws(parts)
-  if (length(parts) >= 5 && parts[5] != "") {
-    return(parts[5])
-  } else {
-    return(NA)
-  }
-}
+# Using extract_level5_position5() from R/utils.R
 
 imgvr_eco <- imgvr %>%
   dplyr::select(contig_id, eco_class = `Ecosystem classification`) %>%
@@ -349,7 +334,7 @@ message("FigS5b completed: ", length(rare_votus_list), " rare vOTUs")
 ```
 
 
-### Task 4: Figure S5c - Host Heatmap 
+### Task 4: Figure S5c - Host Heatmap
 
 ```{r}
 #| label: figs5c-host-heatmap
@@ -374,22 +359,22 @@ if (!exists("rare_votus_list")) {
     sample_group = as.character(colData(tse)$sample_group),
     stringsAsFactors = FALSE
   )
-  
+
   tpm_mat <- assays(tse)$tpm
-  
+
   abundance_long <- as.data.frame(tpm_mat) %>%
     rownames_to_column("vOTU_id") %>%
     pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
     dplyr::left_join(sample_df, by = "sample_id")
-  
+
   sample_totals <- abundance_long %>%
     group_by(sample_group) %>%
     summarise(total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
-  
+
   abundance_rel <- abundance_long %>%
     dplyr::left_join(sample_totals, by = "sample_group") %>%
     mutate(rel_abundance = TPM / total_TPM)
-  
+
   rare_votus_list <- abundance_rel %>%
     dplyr::filter(rel_abundance < 0.001 & rel_abundance > 0) %>%
     pull(vOTU_id) %>%
@@ -522,7 +507,7 @@ summary_data <- heatmap_data_complete %>%
 
 write_csv(summary_data, path_target("FigS5c_summary.csv"))
 
-message("FigS5c completed: ", dplyr::n_distinct(host_weighted$vOTU_id), 
+message("FigS5c completed: ", dplyr::n_distinct(host_weighted$vOTU_id),
         " rare vOTUs with host predictions (weighted)")
 
 ```

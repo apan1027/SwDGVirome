@@ -2,8 +2,8 @@
 title: "08-figs3-lifestyle"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to assess viral replication strategies, quantifying the proportion and distribution of temperate (lysogenic) versus virulent (lytic) viruses across the aquifer profile.
 
 ```{r}
 #| label: params
@@ -64,15 +61,12 @@ suppressPackageStartupMessages({
   library(scales)
   library(patchwork)
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 ```
 
 ## Tasks
-
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
 
 ### Task 1: Load TSE and prepare lifestyle data
 
@@ -255,7 +249,7 @@ p_figs3a <- ggplot(lpi_data, aes(x = sample_group, y = LPI, color = sample_group
   )
 
 # FigS3b: Bubble Plot
-p_figs3b <- ggplot(bubble_data, aes(x = sample_group, y = ratio, 
+p_figs3b <- ggplot(bubble_data, aes(x = sample_group, y = ratio,
                                      size = n_lysogenic, color = category)) +
   geom_point(alpha = 0.85, shape = 16) +
   scale_y_continuous(

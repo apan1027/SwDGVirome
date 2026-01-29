@@ -1,44 +1,61 @@
-# 排除HTML输出
-*.html
-
-# data文件夹策略：
-# - 保留 00-raw/d00-resource（原始数据）
-# - 排除其他所有生成的数据文件夹
-
-# 排除所有data子文件夹
-/analyses/data/*
-
-# 但保留原始数据文件夹（重要！）
-!/analyses/data/00-raw/
-!/analyses/data/.gitkeep
-
-# 排除analyses/output/
-/analyses/output/*
-!/analyses/output/.gitkeep
-
-# 排除图片（但不排除00-raw里的）
-*.pdf
-*.png
-
-# 排除R环境
-/renv/
-renv.lock
-.Rproj.user/
+# --- R Specific ---
 .Rhistory
 .RData
-
-# 排除R包文件
-/man/
-/NAMESPACE/
-# /R/
-
-
-# 排除日志
-*.log
-
-# 排除quarto
-/.quarto/
-
-# 排除Mac
+.Ruserdata
+.Rproj.user/
+.Rapp.history
+*-Ex.R
+/*.tar.gz
+/*.check/
 .DS_Store
+.Rprofile.bak
+.Renviron.bak
+
+# --- R Package specific ---
+# Track NAMESPACE and man/ as they are part of the source
+# !/NAMESPACE
+# !/man/
+
+# --- Statistics and Documentation ---
+*.html
+*.pdf
+*.png
+*.docx
+*.pptx
+
+# --- Quarto / RMarkdown ---
+/.quarto/
+*_files/
+*_cache/
+site_libs/
+
+# --- Data Management (projthis workflow) ---
+# Raw data and processed data should not be tracked
+/analyses/data/
+/analyses/output/
+/analyses/*.sqlite
+/analyses/*.sqlite-journal
+
+# --- renv ---
+# Track renv.lock for reproducibility
+# !renv.lock
+# Ignore the actual library and local state
+/renv/library/
+/renv/local/
+/renv/python/
+/renv/staging/
+/renv/cache/
+
+# --- OS / IDE Specific ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- Miscellaneous ---
+*.log
+.pdm-python
+.python-version
 

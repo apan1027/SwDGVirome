@@ -2,8 +2,8 @@
 title: "09-figs4-abundant-patterns"
 title-block-banner: true
 author:
+  - name: Cunli Pan
   - name: Jinlong Ru
-    orcid: 0000-0002-6757-6018
 date: 2025-12-20
 toc: true
 toc-depth: 4
@@ -11,11 +11,8 @@ number-sections: true
 code-fold: true
 code-line-numbers: true
 code-tools: true
-format: 
-  html:
-    embed-resources: true
-    smooth-scroll: true
-    page-layout: full
+format:
+  gfm: default
 reference-location: section
 citation-location: document
 params:
@@ -24,7 +21,7 @@ params:
 
 **Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
 
-The purpose of this document is ...
+The purpose of this document is to characterize the "abundant biosphere," analyzing the distribution patterns, persistence, and host associations of the most prevalent viral populations.
 
 ```{r}
 #| label: params
@@ -68,17 +65,14 @@ suppressPackageStartupMessages({
   library(scales)
   library(forcats)
 })
+
+# Load package utility functions
+devtools::load_all(here::here())
 ```
 
 ## Tasks
 
-This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
-
-Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
-
-Below is an example structure to get you started:
-
-### Task 1: Load TSE 
+### Task 1: Load TSE
 ```{r}
 #| label: load-data
 
@@ -270,16 +264,7 @@ abundance_abundant <- abundance_rel %>%
   dplyr::filter(vOTU_id %in% abundant_votus_list)
 
 # Extract ecosystem classification
-extract_level5_position5 <- function(eco_string) {
-  if (is.na(eco_string) || eco_string == "") return(NA)
-  parts <- strsplit(as.character(eco_string), ";")[[1]]
-  parts <- trimws(parts)
-  if (length(parts) >= 5 && parts[5] != "") {
-    return(parts[5])
-  } else {
-    return(NA)
-  }
-}
+# Using extract_level5_position5() from R/utils.R
 
 imgvr_eco <- imgvr %>%
   dplyr::select(contig_id, eco_class = `Ecosystem classification`) %>%
@@ -412,25 +397,25 @@ host_filtered <- host_genome %>%
 if (!exists("abundant_votus_list")) {
   sample_df <- data.frame(
     sample_id = colnames(tse),
-    sample_group = as.character(colData(tse)$sample_group), 
+    sample_group = as.character(colData(tse)$sample_group),
     stringsAsFactors = FALSE
   )
-  
+
   tpm_mat <- assays(tse)$tpm
-  
+
   abundance_long <- as.data.frame(tpm_mat) %>%
     rownames_to_column("vOTU_id") %>%
     pivot_longer(cols = -vOTU_id, names_to = "sample_id", values_to = "TPM") %>%
     dplyr::left_join(sample_df, by = "sample_id")
-  
+
   sample_totals <- abundance_long %>%
     group_by(sample_group) %>%
     summarise(total_TPM = sum(TPM, na.rm = TRUE), .groups = "drop")
-  
+
   abundance_rel <- abundance_long %>%
     dplyr::left_join(sample_totals, by = "sample_group") %>%
     mutate(rel_abundance = TPM / total_TPM)
-  
+
   abundant_votus_list <- abundance_rel %>%
     dplyr::filter(rel_abundance >= 0.01) %>%
     pull(vOTU_id) %>%
@@ -531,7 +516,7 @@ summary_data <- heatmap_data_complete %>%
 
 write_csv(summary_data, path_target("FigS4c_summary.csv"))
 
-message("FigS4c completed: ", dplyr::n_distinct(host_weighted$vOTU_id), 
+message("FigS4c completed: ", dplyr::n_distinct(host_weighted$vOTU_id),
         " abundant vOTUs with host predictions (weighted)")
 ```
 
