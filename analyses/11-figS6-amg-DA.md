@@ -7,7 +7,7 @@ Cunli Pan, Jinlong Ru
     Heatmap (Ranked by
     DA)](#task-1-plot-top-20-amg-heatmap-ranked-by-da)
 
-**Updated: 2026-01-29 17:30:50 CET.**
+**Updated: 2026-06-09 18:36:21 CET.**
 
 The purpose of this document is to identify differentially abundant
 auxiliary metabolic genes (AMGs) across sampling depths, visualizing
@@ -33,6 +33,12 @@ devtools::load_all(here::here())
 </details>
 
     ℹ Loading SwDGVirome
+    Registered S3 methods overwritten by 'GenomeInfoDb':
+      method                from   
+      as.data.frame.Seqinfo Seqinfo
+      merge.Seqinfo         Seqinfo
+      summary.Seqinfo       Seqinfo
+      update.Seqinfo        Seqinfo
 
 ## Tasks
 
@@ -42,8 +48,13 @@ devtools::load_all(here::here())
 <summary>Code</summary>
 
 ``` r
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)  
+
 # Read deduplicated pathway table from 05-fig5-heatmap
 dedup_path <- path_source("05-fig5-heatmap", "deduplicated_pathway_table.xlsx")
+
 
 if (!file.exists(dedup_path)) {
   stop("deduplicated_pathway_table.xlsx not found in 05-fig5-heatmap outputs")
@@ -137,12 +148,15 @@ gene_log_matrix_da <- gene_log_matrix_da[, available_samples]
 rownames(gene_log_matrix_da) <- paste0("italic('", rownames(gene_log_matrix_da), "')")
 
 # Color scheme
-my_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+my_colors <- shared_heatmap_colors
 
 # Plot pheatmap
 p_amg_da <- pheatmap::pheatmap(
   gene_log_matrix_da,
   color = my_colors,
+  breaks = shared_heatmap_breaks,
+  legend_breaks = 0:6,
+  legend_labels = as.character(0:6),
   cluster_rows = TRUE,
   cluster_cols = FALSE,
   show_colnames = TRUE,
@@ -173,6 +187,10 @@ ggsave(path_target("FigS6_top20_AMG_DA_heatmap.png"),
        plot = p_amg_da, width = 8, height = 10, dpi = 300)
 ggsave(path_target("FigS6_top20_AMG_DA_heatmap.pdf"),
        plot = p_amg_da, width = 8, height = 10)
+
+ggsave(path_target("FigS6_top20_AMG_DA_heatmap_300dpi.tiff"),
+       plot = p_amg_da, width = 8, height = 10,
+       dpi = 300, device = "tiff", compression = "lzw", bg = "white")
 
 # Save data
 write.csv(

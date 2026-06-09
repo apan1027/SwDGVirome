@@ -73,8 +73,13 @@ devtools::load_all(here::here())
 #| fig.width: 8
 #| fig.height: 10
 
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)  
+
 # Read deduplicated pathway table from 05-fig5-heatmap
 dedup_path <- path_source("05-fig5-heatmap", "deduplicated_pathway_table.xlsx")
+
 
 if (!file.exists(dedup_path)) {
   stop("deduplicated_pathway_table.xlsx not found in 05-fig5-heatmap outputs")
@@ -150,12 +155,15 @@ gene_log_matrix_da <- gene_log_matrix_da[, available_samples]
 rownames(gene_log_matrix_da) <- paste0("italic('", rownames(gene_log_matrix_da), "')")
 
 # Color scheme
-my_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+my_colors <- shared_heatmap_colors
 
 # Plot pheatmap
 p_amg_da <- pheatmap::pheatmap(
   gene_log_matrix_da,
   color = my_colors,
+  breaks = shared_heatmap_breaks,
+  legend_breaks = 0:6,
+  legend_labels = as.character(0:6),
   cluster_rows = TRUE,
   cluster_cols = FALSE,
   show_colnames = TRUE,

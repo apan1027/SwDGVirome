@@ -18,7 +18,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
     Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-**Updated: 2026-01-29 17:22:37 CET.**
+**Updated: 2026-06-09 18:37:03 CET.**
 
 The purpose of this document is to construct and visualize a heatmap of
 viral functional potential based on KEGG orthology (KO) and pathway
@@ -42,7 +42,18 @@ suppressPackageStartupMessages({
   library(pheatmap)
 
 })
+```
 
+</details>
+
+    Warning: package 'S4Vectors' was built under R version 4.5.3
+
+    Warning: package 'Biobase' was built under R version 4.5.3
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Load package utility functions
 devtools::load_all(here::here())
 ```
@@ -406,6 +417,15 @@ message("✅ Task 5 completed")
 ``` r
 message("=== Plot Pathway Heatmap ===")
 
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)  # for pheatmap
+shared_heatmap_values <- seq(0, 6, length.out = length(shared_heatmap_colors))  # for ComplexHeatmap
+
+shared_heatmap_col_fun <- circlize::colorRamp2(
+  shared_heatmap_values,
+  shared_heatmap_colors
+)
 # Read data
 df <- read.xlsx(path_target("heatmap_matrix_with_pathway_group.xlsx"))
 samples <- c("BS", "SA", "IA", "DA")
@@ -448,7 +468,7 @@ mat <- as.matrix(df_heatmap)
 ht <- Heatmap(
   mat,
   name = "log10(TPM + 1)",
-  col = viridis::inferno(100),
+  col = shared_heatmap_col_fun,
   cluster_rows = FALSE,
   cluster_columns = FALSE,
   width = unit(10, "cm"),
@@ -555,6 +575,10 @@ message("✅ Task 6 completed")
 ``` r
 message("=== Plot Top 20 AMG Gene Heatmap (Total TPM) ===")
 
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)
+
 # Read deduplicated pathway table
 df <- read.xlsx(path_target("deduplicated_pathway_table.xlsx"))
 
@@ -628,12 +652,15 @@ gene_log_matrix_total <- gene_log_matrix_total[, available_samples]
 rownames(gene_log_matrix_total) <- paste0("italic('", rownames(gene_log_matrix_total), "')")
 
 # Color scheme
-my_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+my_colors <- shared_heatmap_colors
 
 # Plot pheatmap
 p_amg_total <- pheatmap::pheatmap(
   gene_log_matrix_total,
   color = my_colors,
+  breaks = shared_heatmap_breaks,
+  legend_breaks = 0:6,
+  legend_labels = as.character(0:6),
   cluster_rows = TRUE,
   cluster_cols = FALSE,
   show_colnames = TRUE,
