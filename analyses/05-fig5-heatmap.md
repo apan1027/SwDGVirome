@@ -18,7 +18,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
     Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-**Updated: 2026-06-09 18:37:03 CET.**
+**Updated: 2026-07-22 10:33:25 CET.**
 
 The purpose of this document is to construct and visualize a heatmap of
 viral functional potential based on KEGG orthology (KO) and pathway
@@ -379,9 +379,22 @@ message("Deduplicated: ", nrow(full_df), " → ", nrow(deduplicated_df))
 write.xlsx(deduplicated_df, path_target("deduplicated_pathway_table.xlsx"))
 
 # Filter valid pathways
+# Restrict pathway-level visualization to categories applicable to microbial/viral genomes
+excluded_top_categories <- c("Human Diseases", "Organismal Systems")
+
+excluded_eukaryote_pathways <- c(
+  "map04148",  # Efferocytosis
+  "map04142",  # Lysosome biogenesis
+  "map04152",  # AMPK signaling pathway
+  "map00601",  # Glycosphingolipid biosynthesis - lacto and neolacto series
+  "map00603"   # Glycosphingolipid biosynthesis - globo and isoglobo series
+)
+
 filtered_df <- deduplicated_df %>%
   dplyr::filter(!is.na(Pathway_ID), !is.na(Pathway_Name), !is.na(sample_group)) %>%
   dplyr::filter(!is.na(TPM)) %>%
+  dplyr::filter(!(Pathway_Top_Category %in% excluded_top_categories)) %>%
+  dplyr::filter(!(Pathway_ID %in% excluded_eukaryote_pathways)) %>%
   mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"),
                                  "Metabolism", "Other"))
 
@@ -584,7 +597,7 @@ df <- read.xlsx(path_target("deduplicated_pathway_table.xlsx"))
 
 # Clean data
 df_clean <- df %>%
-  dplyr::select(dbid, vOTU_id, sample_group, TPM, db_desc) %>%
+  dplyr::select(dbid, vOTU_id, protein_id, sample_group, TPM, db_desc) %>%
   dplyr::filter(!is.na(dbid), !is.na(sample_group), !is.na(TPM)) %>%
   dplyr::distinct()
 
@@ -593,7 +606,7 @@ message("Clean data: ", nrow(df_clean), " rows")
 # Special gene name mapping
 special_map <- tribble(
   ~dbid, ~gene_symbol,
-  "K00525", "nrdA",
+  "K00525", "RNR",
   "EC:1.17.4.1", "RNR",
   "K00973", "rfbA",
   "K01710", "rfbB",
@@ -617,7 +630,9 @@ df_labeled <- df_clean %>%
       str_trim(),
     gene_symbol = if_else(is.na(gene_symbol), auto_label, gene_symbol)
   ) %>%
-  dplyr::select(-auto_label)
+  dplyr::select(-auto_label) %>%
+  # Collapse duplicate KO/EC annotations assigned to the same protein
+  dplyr::distinct(vOTU_id, protein_id, gene_symbol, sample_group, TPM, .keep_all = TRUE)
 
 # Summarize total TPM per gene
 gene_summary <- df_labeled %>%

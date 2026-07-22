@@ -7,7 +7,7 @@ Cunli Pan, Jinlong Ru
     Heatmap (Ranked by
     DA)](#task-1-plot-top-20-amg-heatmap-ranked-by-da)
 
-**Updated: 2026-06-09 18:36:21 CET.**
+**Updated: 2026-07-20 13:40:37 CET.**
 
 The purpose of this document is to identify differentially abundant
 auxiliary metabolic genes (AMGs) across sampling depths, visualizing
@@ -62,9 +62,9 @@ if (!file.exists(dedup_path)) {
 
 df <- openxlsx::read.xlsx(dedup_path)
 
-# Clean data (key column names: dbid, vOTU_id, sample_group, TPM, db_desc)
+# Clean data (key column names: dbid, vOTU_id, protein_id, sample_group, TPM, db_desc)
 df_clean <- df %>%
-  dplyr::select(dbid, vOTU_id, sample_group, TPM, db_desc) %>%
+  dplyr::select(dbid, vOTU_id, protein_id, sample_group, TPM, db_desc) %>%
   dplyr::filter(!is.na(dbid), !is.na(sample_group), !is.na(TPM)) %>%
   dplyr::distinct()
 
@@ -82,7 +82,7 @@ message("Clean data: ", nrow(df_clean), " rows")
 # Special gene name mapping (same as Fig5b)
 special_map <- tibble::tribble(
   ~dbid, ~gene_symbol,
-  "K00525", "nrdA",
+  "K00525", "RNR",
   "EC:1.17.4.1", "RNR",
   "K00973", "rfbA",
   "K01710", "rfbB",
@@ -104,9 +104,14 @@ df_labeled <- df_clean %>%
       str_split(",", simplify = TRUE) %>%
       .[, 1] %>%
       str_trim(),
-    gene_symbol = if_else(is.na(gene_symbol), auto_label, gene_symbol)
+        gene_symbol = if_else(is.na(gene_symbol), auto_label, gene_symbol)
   ) %>%
-  dplyr::select(-auto_label)
+  dplyr::select(-auto_label) %>%
+  # Collapse duplicate KO/EC annotations assigned to the same protein
+  dplyr::distinct(vOTU_id, protein_id, gene_symbol, sample_group, TPM, .keep_all = TRUE)
+
+
+
 
 # Summarize TPM per gene and sample
 gene_summary <- df_labeled %>%
@@ -187,10 +192,6 @@ ggsave(path_target("FigS6_top20_AMG_DA_heatmap.png"),
        plot = p_amg_da, width = 8, height = 10, dpi = 300)
 ggsave(path_target("FigS6_top20_AMG_DA_heatmap.pdf"),
        plot = p_amg_da, width = 8, height = 10)
-
-ggsave(path_target("FigS6_top20_AMG_DA_heatmap_300dpi.tiff"),
-       plot = p_amg_da, width = 8, height = 10,
-       dpi = 300, device = "tiff", compression = "lzw", bg = "white")
 
 # Save data
 write.csv(
