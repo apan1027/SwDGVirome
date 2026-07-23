@@ -18,7 +18,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
     Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-**Updated: 2026-07-22 10:33:25 CET.**
+**Updated: 2026-07-23 17:45:29 CET.**
 
 The purpose of this document is to construct and visualize a heatmap of
 viral functional potential based on KEGG orthology (KO) and pathway
@@ -380,23 +380,14 @@ write.xlsx(deduplicated_df, path_target("deduplicated_pathway_table.xlsx"))
 
 # Filter valid pathways
 # Restrict pathway-level visualization to categories applicable to microbial/viral genomes
-excluded_top_categories <- c("Human Diseases", "Organismal Systems")
-
-excluded_eukaryote_pathways <- c(
-  "map04148",  # Efferocytosis
-  "map04142",  # Lysosome biogenesis
-  "map04152",  # AMPK signaling pathway
-  "map00601",  # Glycosphingolipid biosynthesis - lacto and neolacto series
-  "map00603"   # Glycosphingolipid biosynthesis - globo and isoglobo series
-)
-
+# Filter valid pathways
+# Restrict pathway-level visualization to KEGG Metabolism pathways
 filtered_df <- deduplicated_df %>%
   dplyr::filter(!is.na(Pathway_ID), !is.na(Pathway_Name), !is.na(sample_group)) %>%
   dplyr::filter(!is.na(TPM)) %>%
-  dplyr::filter(!(Pathway_Top_Category %in% excluded_top_categories)) %>%
-  dplyr::filter(!(Pathway_ID %in% excluded_eukaryote_pathways)) %>%
-  mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"),
-                                 "Metabolism", "Other"))
+  dplyr::filter(Pathway_Top_Category == "Metabolism") %>%
+  mutate(Pathway_Group = "Metabolism")
+
 
 message("Valid pathway rows: ", nrow(filtered_df))
 
@@ -468,11 +459,7 @@ matched <- df_heatmap %>%
   dplyr::left_join(anno_df, by = "Pathway_Short")
 
 # Metabolism=orange, Other=blue
-label_colors <- ifelse(
-  str_starts(matched$Pathway_Top_Category, "Metabolism"),
-  "#D97706",  # Orange
-  "#2563EB"   # Blue
-)
+label_colors <- "black"
 
 # Convert to matrix
 mat <- as.matrix(df_heatmap)
@@ -543,6 +530,25 @@ dev.off()
 <summary>Code</summary>
 
 ``` r
+# --- TEMPORARY: TIFF export for Fig. 5 assembly; delete after use ---
+tiff(path_target("Fig5a_metabolic_pathway_heatmap_300dpi.tiff"),
+     width = 3600, height = 4800, res = 300,
+     compression = "lzw", bg = "white")
+draw(ht)
+dev.off()
+```
+
+</details>
+
+    quartz_off_screen 
+                    2 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# ---
+
 pdf(path_target("Fig5_pathway_heatmap.pdf"), width = 12, height = 16)
 draw(ht)
 dev.off()
