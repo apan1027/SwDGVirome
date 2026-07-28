@@ -18,7 +18,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.7</span> Task 7: Plot Top 20 AMG
     Heatmap](#task-7-plot-top-20-amg-heatmap)
 
-**Updated: 2026-01-29 17:22:37 CET.**
+**Updated: 2026-07-23 17:45:29 CET.**
 
 The purpose of this document is to construct and visualize a heatmap of
 viral functional potential based on KEGG orthology (KO) and pathway
@@ -42,7 +42,18 @@ suppressPackageStartupMessages({
   library(pheatmap)
 
 })
+```
 
+</details>
+
+    Warning: package 'S4Vectors' was built under R version 4.5.3
+
+    Warning: package 'Biobase' was built under R version 4.5.3
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Load package utility functions
 devtools::load_all(here::here())
 ```
@@ -368,11 +379,15 @@ message("Deduplicated: ", nrow(full_df), " → ", nrow(deduplicated_df))
 write.xlsx(deduplicated_df, path_target("deduplicated_pathway_table.xlsx"))
 
 # Filter valid pathways
+# Restrict pathway-level visualization to categories applicable to microbial/viral genomes
+# Filter valid pathways
+# Restrict pathway-level visualization to KEGG Metabolism pathways
 filtered_df <- deduplicated_df %>%
   dplyr::filter(!is.na(Pathway_ID), !is.na(Pathway_Name), !is.na(sample_group)) %>%
   dplyr::filter(!is.na(TPM)) %>%
-  mutate(Pathway_Group = ifelse(str_starts(Pathway_Top_Category, "Metabolism"),
-                                 "Metabolism", "Other"))
+  dplyr::filter(Pathway_Top_Category == "Metabolism") %>%
+  mutate(Pathway_Group = "Metabolism")
+
 
 message("Valid pathway rows: ", nrow(filtered_df))
 
@@ -406,6 +421,15 @@ message("✅ Task 5 completed")
 ``` r
 message("=== Plot Pathway Heatmap ===")
 
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)  # for pheatmap
+shared_heatmap_values <- seq(0, 6, length.out = length(shared_heatmap_colors))  # for ComplexHeatmap
+
+shared_heatmap_col_fun <- circlize::colorRamp2(
+  shared_heatmap_values,
+  shared_heatmap_colors
+)
 # Read data
 df <- read.xlsx(path_target("heatmap_matrix_with_pathway_group.xlsx"))
 samples <- c("BS", "SA", "IA", "DA")
@@ -435,11 +459,7 @@ matched <- df_heatmap %>%
   dplyr::left_join(anno_df, by = "Pathway_Short")
 
 # Metabolism=orange, Other=blue
-label_colors <- ifelse(
-  str_starts(matched$Pathway_Top_Category, "Metabolism"),
-  "#D97706",  # Orange
-  "#2563EB"   # Blue
-)
+label_colors <- "black"
 
 # Convert to matrix
 mat <- as.matrix(df_heatmap)
@@ -448,7 +468,7 @@ mat <- as.matrix(df_heatmap)
 ht <- Heatmap(
   mat,
   name = "log10(TPM + 1)",
-  col = viridis::inferno(100),
+  col = shared_heatmap_col_fun,
   cluster_rows = FALSE,
   cluster_columns = FALSE,
   width = unit(10, "cm"),
@@ -510,6 +530,25 @@ dev.off()
 <summary>Code</summary>
 
 ``` r
+# --- TEMPORARY: TIFF export for Fig. 5 assembly; delete after use ---
+tiff(path_target("Fig5a_metabolic_pathway_heatmap_300dpi.tiff"),
+     width = 3600, height = 4800, res = 300,
+     compression = "lzw", bg = "white")
+draw(ht)
+dev.off()
+```
+
+</details>
+
+    quartz_off_screen 
+                    2 
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# ---
+
 pdf(path_target("Fig5_pathway_heatmap.pdf"), width = 12, height = 16)
 draw(ht)
 dev.off()
@@ -555,12 +594,16 @@ message("✅ Task 6 completed")
 ``` r
 message("=== Plot Top 20 AMG Gene Heatmap (Total TPM) ===")
 
+# Shared heatmap color scale
+shared_heatmap_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+shared_heatmap_breaks <- seq(0, 6, length.out = 101)
+
 # Read deduplicated pathway table
 df <- read.xlsx(path_target("deduplicated_pathway_table.xlsx"))
 
 # Clean data
 df_clean <- df %>%
-  dplyr::select(dbid, vOTU_id, sample_group, TPM, db_desc) %>%
+  dplyr::select(dbid, vOTU_id, protein_id, sample_group, TPM, db_desc) %>%
   dplyr::filter(!is.na(dbid), !is.na(sample_group), !is.na(TPM)) %>%
   dplyr::distinct()
 
@@ -569,7 +612,7 @@ message("Clean data: ", nrow(df_clean), " rows")
 # Special gene name mapping
 special_map <- tribble(
   ~dbid, ~gene_symbol,
-  "K00525", "nrdA",
+  "K00525", "RNR",
   "EC:1.17.4.1", "RNR",
   "K00973", "rfbA",
   "K01710", "rfbB",
@@ -593,7 +636,9 @@ df_labeled <- df_clean %>%
       str_trim(),
     gene_symbol = if_else(is.na(gene_symbol), auto_label, gene_symbol)
   ) %>%
-  dplyr::select(-auto_label)
+  dplyr::select(-auto_label) %>%
+  # Collapse duplicate KO/EC annotations assigned to the same protein
+  dplyr::distinct(vOTU_id, protein_id, gene_symbol, sample_group, TPM, .keep_all = TRUE)
 
 # Summarize total TPM per gene
 gene_summary <- df_labeled %>%
@@ -628,12 +673,15 @@ gene_log_matrix_total <- gene_log_matrix_total[, available_samples]
 rownames(gene_log_matrix_total) <- paste0("italic('", rownames(gene_log_matrix_total), "')")
 
 # Color scheme
-my_colors <- colorRampPalette(RColorBrewer::brewer.pal(9, "YlOrRd"))(100)
+my_colors <- shared_heatmap_colors
 
 # Plot pheatmap
 p_amg_total <- pheatmap::pheatmap(
   gene_log_matrix_total,
   color = my_colors,
+  breaks = shared_heatmap_breaks,
+  legend_breaks = 0:6,
+  legend_labels = as.character(0:6),
   cluster_rows = TRUE,
   cluster_cols = FALSE,
   show_colnames = TRUE,
