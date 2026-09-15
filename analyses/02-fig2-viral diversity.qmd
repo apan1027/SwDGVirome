@@ -94,10 +94,20 @@ devtools::load_all(here::here())
 ##| label: load-tse
 #| message: true
 
-# Load TSE
-tse_path <- here("data", "01-tse-construction", "tse.rds")
+# Load the already filtered >=5 kb primary catalogue produced by analysis 01.
+# All original Figure 2 calculations and layouts below are otherwise retained.
+tse_path <- here(
+  "data",
+  "01-tse-construction",
+  "tse_primary_962.rds"
+)
 stopifnot(file.exists(tse_path))
 tse <- readRDS(tse_path)
+
+stopifnot(
+  nrow(tse) == 962,
+  ncol(tse) == 4
+)
 
 message("✅ TSE loaded: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
 
@@ -764,9 +774,9 @@ p_right <- ggplot(novel_ratio, aes(x = novel_ratio, y = sample_group)) +
   scale_y_discrete(limits = levels(novel_ratio$sample_group)) +
   coord_cartesian(clip = "off") +
   labs(
-    x = "Proportion of Novel Viruses",
+    x = "Abundance share (TPM)",
     y = NULL,
-    title = "novel"
+    title = "Unreferenced clusters"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -825,9 +835,12 @@ message("📊 Figure 2g: Predicted Host Bacteria (Phylum Level)")
 # Extract host prediction data from metadata
 host_genome_edges <- metadata(tse)$host_genome_edges
 
-# Filter high-confidence predictions (>= 80)
+# Filter high-confidence predictions (>= 80) to the >=5 kb primary catalogue
 host_filtered <- host_genome_edges %>%
-  filter(Confidence.score >= 80) %>%
+  filter(
+    Confidence.score >= 80,
+    vOTU_id %in% rownames(tse)
+  ) %>%
   mutate(
     Phylum = stringr::str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
     Phylum = if_else(is.na(Phylum), "Unclassified", Phylum)
@@ -923,10 +936,10 @@ p_fig2g <- ggplot(plot_data, aes(x = rel_abundance, y = Phylum)) +
     guide = guide_legend(order = 2, override.aes = list(color = "grey50"))
   ) +
   scale_x_continuous(
-    breaks = seq(0, 0.30, 0.05),
-    labels = c("0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30"),
+    breaks = seq(0, 0.45, 0.05),
+    labels = c("0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30", "0.35", "0.40", "0.45"),
     expand = c(0, 0),
-    limits = c(-0.02, 0.30)
+    limits = c(-0.02, 0.45)
   ) +
   labs(
     x = "Relative abundance of predicted bacterial hosts",
@@ -966,3 +979,91 @@ write_csv(table_s1, path_target("Fig2g_Table_S1_host_phylum_abundance.csv"))
 message("✅ Figure 2g completed")
 ```
 
+
+### Export final panels as TIFF for Inkscape
+
+```{r}
+#| label: export-fig2-tiff
+#| include: false
+
+tiff_dir <- path_target("tiff_panels")
+dir.create(tiff_dir, recursive = TRUE, showWarnings = FALSE)
+
+save_tiff <- function(plot, filename, width, height) {
+  ggsave(
+    filename = file.path(tiff_dir, filename),
+    plot = plot,
+    device = "tiff",
+    width = width,
+    height = height,
+    units = "in",
+    dpi = 600,
+    compression = "lzw",
+    bg = "white"
+  )
+}
+
+# Fig. 2a
+save_tiff(
+  p_fig2a,
+  "Fig2a_taxonomy_class.tiff",
+  width = 7,
+  height = 6
+)
+
+# Fig. 2b
+save_tiff(
+  p_fig2b,
+  "Fig2b_rarefaction.tiff",
+  width = 8,
+  height = 10
+)
+
+# Fig. 2c — VennDiagram/grid object
+grDevices::tiff(
+  filename = file.path(tiff_dir, "Fig2c_venn.tiff"),
+  width = 10,
+  height = 10,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  bg = "white"
+)
+grid::grid.newpage()
+grid::grid.draw(venn.plot)
+grDevices::dev.off()
+
+# Fig. 2d
+save_tiff(
+  p_fig2d,
+  "Fig2d_replication_strategy.tiff",
+  width = 5,
+  height = 6
+)
+
+# Fig. 2e
+save_tiff(
+  p_fig2e,
+  "Fig2e_shannon.tiff",
+  width = 6,
+  height = 6
+)
+
+# Fig. 2f
+save_tiff(
+  p_fig2f,
+  "Fig2f_imgvr_source_and_genus_summary.tiff",
+  width = 7.8,
+  height = 5
+)
+
+# Fig. 2g
+save_tiff(
+  p_fig2g,
+  "Fig2g_host_phylum.tiff",
+  width = 6.7,
+  height = 9
+)
+
+message("TIFF panels written to: ", tiff_dir)
+```

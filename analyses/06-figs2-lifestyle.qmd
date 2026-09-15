@@ -1,0 +1,581 @@
+---
+title: "06-figs2-lifestyle"
+date: today
+params:
+  name: "06-figs2-lifestyle"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+```{r}
+#| label: params
+#| eval: !expr interactive()
+#| include: false
+params = list(name = "06-figs2-lifestyle")
+```
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "d65423df-0a95-4ef0-9a8f-e2337a89f718")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+#| label: packages
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(here)
+  library(conflicted)
+  library(tidyverse)
+  library(data.table)
+  library(patchwork)
+  devtools::load_all()
+})
+```
+
+## Tasks
+
+This section is designated for your workflow implementation. **Please write all your analysis and processing code here.**
+
+Maintaining your code within this section ensures a clean project structure and facilitates reproducibility. We recommend organizing your workflow into modular tasks—such as data cleaning, analysis, and visualization—using distinct code chunks.
+
+::: {.callout-note}
+## Example structure
+
+This is an example structure to get you started. You can modify it as per your needs.
+:::
+
+
+## Tasks
+### Task 1: Load the complete discovery catalogue
+
+```{r}
+#| label: task1-load-data
+#| message: true
+#| warning: false
+
+# Figure S2 is a sensitivity analysis of predicted lifestyle
+# against contig length and CheckV quality.
+#
+# Therefore, unlike the main analyses, it uses the complete
+# >=3 kb discovery catalogue so that the 3–5 kb group is retained.
+
+tse_discovery <- readRDS(
+  here(
+    "data",
+    "01-tse-construction",
+    "tse_discovery_2488.rds"
+  )
+)
+
+votu_metadata <- SummarizedExperiment::rowData(
+  tse_discovery
+) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("vOTU_id")
+
+stopifnot(nrow(votu_metadata) == 2488)
+
+stopifnot(
+  all(
+    c(
+      "representative_length_bp",
+      "checkv_quality",
+      "lifestyle"
+    ) %in% colnames(votu_metadata)
+  )
+)
+
+message(
+  "Complete discovery catalogue loaded: ",
+  nrow(votu_metadata),
+  " vOTUs"
+)
+```
+
+
+###Task 2: Define length and CheckV quality groups
+```{r}
+#| label: task2-define-groups
+#| message: true
+#| warning: false
+
+votu_metadata <- votu_metadata %>%
+  dplyr::mutate(
+    is_temperate = lifestyle == "temperate",
+
+    length_group = cut(
+      representative_length_bp,
+      breaks = c(
+        3000,
+        5000,
+        10000,
+        20000,
+        Inf
+      ),
+      right = FALSE,
+      labels = c(
+        "3–5 kb",
+        "5–10 kb",
+        "10–20 kb",
+        "≥20 kb"
+      )
+    ),
+
+    quality_group = factor(
+      checkv_quality,
+      levels = c(
+        "Complete",
+        "High-quality",
+        "Medium-quality",
+        "Low-quality",
+        "Not-determined"
+      )
+    )
+  )
+
+stopifnot(!any(is.na(votu_metadata$length_group)))
+stopifnot(!any(is.na(votu_metadata$quality_group)))
+
+message(
+  "Length and CheckV quality groups created"
+)
+```
+
+###Task 3: Calculate predicted temperate percentages
+```{r}
+#| label: task3-calculate-summaries
+#| message: true
+#| warning: false
+
+length_summary <- votu_metadata %>%
+  dplyr::count(
+    length_group,
+    is_temperate,
+    name = "n"
+  ) %>%
+  tidyr::complete(
+    length_group,
+    is_temperate,
+    fill = list(n = 0)
+  ) %>%
+  dplyr::group_by(length_group) %>%
+  dplyr::summarise(
+    n_vOTU = sum(n),
+    n_temperate = sum(n[is_temperate]),
+    pct_temperate =
+      100 * n_temperate / n_vOTU,
+    .groups = "drop"
+  )
+
+quality_summary <- votu_metadata %>%
+  dplyr::count(
+    quality_group,
+    is_temperate,
+    name = "n"
+  ) %>%
+  tidyr::complete(
+    quality_group,
+    is_temperate,
+    fill = list(n = 0)
+  ) %>%
+  dplyr::group_by(quality_group) %>%
+  dplyr::summarise(
+    n_vOTU = sum(n),
+    n_temperate = sum(n[is_temperate]),
+    pct_temperate =
+      100 * n_temperate / n_vOTU,
+    .groups = "drop"
+  )
+
+print(length_summary, n = Inf)
+print(quality_summary, n = Inf)
+```
+
+###Task 4: Validate the Figure S2 numbers
+```{r}
+#| label: task4-validate-results
+#| message: true
+#| warning: false
+
+# Expected number of vOTUs in each length category
+stopifnot(
+  identical(
+    length_summary$n_vOTU,
+    c(
+      1526L,
+      689L,
+      207L,
+      66L
+    )
+  )
+)
+
+# Expected number predicted as temperate
+stopifnot(
+  identical(
+    length_summary$n_temperate,
+    c(
+      12L,
+      9L,
+      7L,
+      7L
+    )
+  )
+)
+
+# Expected number of vOTUs in each CheckV category
+stopifnot(
+  identical(
+    quality_summary$n_vOTU,
+    c(
+      4L,
+      12L,
+      39L,
+      2311L,
+      122L
+    )
+  )
+)
+
+# Expected number predicted as temperate
+stopifnot(
+  identical(
+    quality_summary$n_temperate,
+    c(
+      0L,
+      2L,
+      4L,
+      25L,
+      4L
+    )
+  )
+)
+
+stopifnot(
+  sum(length_summary$n_vOTU) == 2488
+)
+
+stopifnot(
+  sum(length_summary$n_temperate) == 35
+)
+
+stopifnot(
+  sum(quality_summary$n_vOTU) == 2488
+)
+
+stopifnot(
+  sum(quality_summary$n_temperate) == 35
+)
+
+message(
+  "All Figure S2 numerical checks passed"
+)
+
+```
+
+###Task 5: Create Figure S2
+
+```{r}
+#| label: task5-create-figure
+#| fig-width: 12
+#| fig-height: 5.5
+#| message: false
+#| warning: false
+
+panel_theme <-
+  theme_classic(
+    base_size = 18,
+    base_family = "Times"
+  ) +
+  theme(
+    axis.line = element_line(
+      linewidth = 0.8,
+      colour = "black"
+    ),
+    axis.ticks = element_line(
+      linewidth = 0.7,
+      colour = "black"
+    ),
+    axis.text = element_text(
+      colour = "black"
+    ),
+    plot.margin = margin(
+      10,
+      10,
+      10,
+      10
+    )
+  )
+
+# Figure S2a:
+# predicted temperate percentage by representative contig length
+p_figs2a <- ggplot(
+  length_summary,
+  aes(
+    x = length_group,
+    y = pct_temperate
+  )
+) +
+  geom_col(
+    width = 0.68,
+    fill = "#3274A1",
+    colour = "black",
+    linewidth = 0.5
+  ) +
+  geom_text(
+    aes(
+      label = paste0(
+        n_temperate,
+        "/",
+        n_vOTU
+      )
+    ),
+    vjust = -0.45,
+    size = 5,
+    family = "Times"
+  ) +
+  scale_y_continuous(
+    limits = c(0, 20),
+    breaks = seq(0, 20, 5),
+    expand = expansion(
+      mult = c(0, 0)
+    )
+  ) +
+  labs(
+   x = NULL,
+    y = "vOTUs predicted temperate (%)"
+  ) +
+  panel_theme
+
+# Figure S2b:
+# predicted temperate percentage by CheckV quality category
+p_figs2b <- ggplot(
+  quality_summary,
+  aes(
+    x = quality_group,
+    y = pct_temperate
+  )
+) +
+  geom_col(
+    width = 0.68,
+    fill = "#3274A1",
+    colour = "black",
+    linewidth = 0.5
+  ) +
+  geom_text(
+    aes(
+      label = paste0(
+        n_temperate,
+        "/",
+        n_vOTU
+      )
+    ),
+    vjust = -0.45,
+    size = 5,
+    family = "Times"
+  ) +
+  scale_y_continuous(
+    limits = c(0, 18.5),
+    breaks = seq(0, 15, 5),
+    expand = expansion(
+      mult = c(0, 0)
+    )
+  ) +
+  labs(
+   x = NULL,
+    y = "vOTUs predicted temperate (%)"
+  ) +
+  panel_theme +
+  theme(
+    axis.text.x = element_text(
+      angle = 35,
+      hjust = 1
+    )
+  )
+
+# Combined preview only.
+# You can still use the two individual TIFF panels in Inkscape.
+p_figs2_combined <-
+  p_figs2a +
+  p_figs2b +
+  patchwork::plot_annotation(
+    tag_levels = "a"
+  )
+
+print(p_figs2_combined)
+
+```
+
+
+### Task 6: Save source data, PNG and TIFF files
+
+```{r}
+#| label: task6-save-outputs
+#| include: false
+#| message: true
+#| warning: false
+
+figures_dir <- path_target("figures")
+data_dir <- path_target("data")
+tiff_dir <- path_target("tiff_panels")
+
+dir.create(
+  figures_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+dir.create(
+  data_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+dir.create(
+  tiff_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+# Save the source data used in Figure S2
+readr::write_csv(
+  length_summary,
+  file.path(
+    data_dir,
+    "FigS2a_lifestyle_by_contig_length.csv"
+  )
+)
+
+readr::write_csv(
+  quality_summary,
+  file.path(
+    data_dir,
+    "FigS2b_lifestyle_by_CheckV_quality.csv"
+  )
+)
+
+# Save individual PNG panels
+ggsave(
+  filename = file.path(
+    figures_dir,
+    "FigS2a_length_dependence.png"
+  ),
+  plot = p_figs2a,
+  width = 6,
+  height = 5.5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+
+ggsave(
+  filename = file.path(
+    figures_dir,
+    "FigS2b_quality_dependence.png"
+  ),
+  plot = p_figs2b,
+  width = 6,
+  height = 5.5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+
+# Save combined PNG preview
+ggsave(
+  filename = file.path(
+    figures_dir,
+    "FigS2_lifestyle_sensitivity_combined.png"
+  ),
+  plot = p_figs2_combined,
+  width = 12,
+  height = 5.5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+
+# Save individual 600-dpi TIFF panels for Inkscape
+ggsave(
+  filename = file.path(
+    tiff_dir,
+    "FigS2a_length_dependence.tiff"
+  ),
+  plot = p_figs2a,
+  device = "tiff",
+  width = 6,
+  height = 5.5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw",
+  bg = "white"
+)
+
+ggsave(
+  filename = file.path(
+    tiff_dir,
+    "FigS2b_quality_dependence.tiff"
+  ),
+  plot = p_figs2b,
+  device = "tiff",
+  width = 6,
+  height = 5.5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw",
+  bg = "white"
+)
+
+# Optional combined TIFF preview
+ggsave(
+  filename = file.path(
+    tiff_dir,
+    "FigS2_lifestyle_sensitivity_combined.tiff"
+  ),
+  plot = p_figs2_combined,
+  device = "tiff",
+  width = 12,
+  height = 5.5,
+  units = "in",
+  dpi = 600,
+  compression = "lzw",
+  bg = "white"
+)
+
+message(
+  "Figure S2 outputs saved to: ",
+  normalizePath(path_target())
+)
+```
+
+
+
+
+## Files written
+
+```{r}
+#| label: list-files-target
+
+projthis::proj_dir_info(
+  path_target(),
+  tz = "CET"
+) %>%
+  knitr::kable()
+```

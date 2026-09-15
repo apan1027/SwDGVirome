@@ -1,0 +1,142 @@
+---
+title: "11-table-s2-public-matches"
+date: today
+params:
+  name: "11-table-s2-public-matches"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "921d7ed1-654a-4b8a-a325-66a3ce85adf6")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+
+```{r}
+#| label: packages
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(here)
+  library(conflicted)
+  library(tidyverse)
+  library(data.table)
+  devtools::load_all()
+})
+if (!requireNamespace("openxlsx", quietly = TRUE)) {
+  stop("Please install openxlsx before rendering this QMD.")
+}
+```
+## Tasks
+### Task 1: Import existing sequence-match records
+This step exports archived alignment results, without rerunning alignments,
+read mapping, or cross-study species dereplication.
+```{r}
+#| label: data-import
+#| cache: false
+input_file <- file.path(path_data, "public_reference_alignments_primary962.csv")
+if (!file.exists(input_file)) stop("Missing input: ", input_file)
+matches <- utils::read.csv(input_file, stringsAsFactors = FALSE, check.names = FALSE)
+required <- c("vOTU_id", "reference_accession", "qlen", "slen", "ani",
+              "af_query", "af_target", "representative_length_bp", "in_primary_962")
+stopifnot(all(required %in% names(matches)))
+stopifnot(
+  !anyNA(matches[required]),
+  nrow(matches) == 9L,
+  length(unique(matches$vOTU_id)) == 9L,
+  length(unique(matches$reference_accession)) == 6L,
+  all(matches$in_primary_962),
+  all(matches$qlen >= 5000),
+  all(matches$qlen == matches$representative_length_bp),
+  all(matches$slen > 0),
+  all(matches$ani >= 95 & matches$ani <= 100),
+  all(matches$af_query >= 85 & matches$af_query <= 100),
+  all(matches$af_target > 0 & matches$af_target <= 100)
+)
+# Percentages are already on a 0-100 scale: do not multiply by 100.
+table_s2 <- matches[c("vOTU_id", "reference_accession", "qlen", "slen",
+                      "ani", "af_query", "af_target")]
+names(table_s2) <- c("vOTU", "Reference accession", "Query length (bp)",
+                    "Reference length (bp)", "ANI (%)", "Query aligned (%)",
+                    "Reference aligned (%)")
+```
+### Task 2: Preview Table S2
+```{r}
+#| label: table-s2-preview
+table_title <- "Table S2. Sequence matches linking the primary catalogue to published Äspö contigs."
+knitr::kable(table_s2, digits = 2, caption = table_title)
+```
+### Task 3: Export Excel
+```{r}
+#| label: table-s2-export
+#| cache: false
+notes <- data.frame(
+  Item = c("Title", "Source records", "Reference publication", "ANI",
+           "Aligned fractions", "Selection", "Interpretation", "Display"),
+  Description = c(
+    table_title,
+    "Archived public_reference_alignments_primary962.csv; existing sequence-match records, not new alignments.",
+    "Holmfeldt et al. (2021). The Fennoscandian Shield deep terrestrial virosphere suggests slow motion 'boom and burst' cycles. Communications Biology 4:307. https://doi.org/10.1038/s42003-021-01810-1",
+    "Average nucleotide identity (%). Query is a representative in the present 962-vOTU primary catalogue; reference is a deposited Äspö contig.",
+    "Query aligned (%) and Reference aligned (%) use the query and reference lengths as separate denominators. Values are on a 0-100 scale.",
+    "Existing alignment records meeting ANI >=95% and query-aligned fraction >=85% were retained. No new alignment or cross-study species dereplication was performed for this comparison.",
+    "Multiple current representatives can match different parts of the same longer reference. Nine matched representatives and six references do not establish either nine or six shared viral species. Published reference coverage across external libraries is shown in Fig. S8.",
+    "Numerical values retain the precision of the source records. Percentage columns display two decimal places; a zero displays as 0. Lengths are integer base pairs."
+  ), stringsAsFactors = FALSE
+)
+wb <- openxlsx::createWorkbook(creator = "SwDGVirome")
+openxlsx::modifyBaseFont(wb, fontSize = 11, fontName = "Arial", fontColour = "#000000")
+openxlsx::addWorksheet(wb, "Table S2", gridLines = FALSE)
+openxlsx::addWorksheet(wb, "Notes", gridLines = FALSE)
+header_style <- openxlsx::createStyle(textDecoration = "bold", fgFill = "#E8EEF3",
+                                      wrapText = TRUE, valign = "center")
+openxlsx::writeData(wb, "Table S2", table_s2, headerStyle = header_style, withFilter = TRUE)
+openxlsx::setColWidths(wb, "Table S2", cols = 1:7, widths = c(15, 23, 21, 23, 15, 23, 25))
+openxlsx::setRowHeights(wb, "Table S2", rows = 1, heights = 32)
+openxlsx::freezePane(wb, "Table S2", firstRow = TRUE)
+openxlsx::addStyle(wb, "Table S2", openxlsx::createStyle(numFmt = "#,##0"),
+                   rows = 2:10, cols = 3:4, gridExpand = TRUE)
+openxlsx::addStyle(wb, "Table S2", openxlsx::createStyle(numFmt = "0.00;-0.00;0"),
+                   rows = 2:10, cols = 5:7, gridExpand = TRUE)
+openxlsx::writeData(wb, "Notes", notes, headerStyle = header_style)
+openxlsx::setColWidths(wb, "Notes", cols = 1:2, widths = c(25, 110))
+openxlsx::addStyle(wb, "Notes", openxlsx::createStyle(wrapText = TRUE, valign = "top"),
+                   rows = 2:9, cols = 1:2, gridExpand = TRUE)
+openxlsx::setRowHeights(wb, "Notes", rows = 2:9, heights = c(30, 35, 65, 45, 45, 55, 75, 45))
+# These sheets contain no drawings. Remove openxlsx's unused default links
+# so other spreadsheet readers do not look for nonexistent drawing files.
+for (i in seq_along(wb$worksheets)) {
+  wb$worksheets[[i]]$drawing <- character(0)
+  wb$worksheets_rels[[i]] <- character(0)
+}
+xlsx_file <- path_target("Table_S2_public_reference_matches.xlsx")
+openxlsx::saveWorkbook(wb, xlsx_file, overwrite = TRUE)
+# Read the saved Excel file back to verify every value and header.
+roundtrip <- openxlsx::read.xlsx(xlsx_file, sheet = "Table S2", check.names = FALSE)
+stopifnot(isTRUE(all.equal(roundtrip, table_s2, check.attributes = FALSE)))
+message("Verified Excel export: 9 representatives, 6 references; ", xlsx_file)
+```
+## Files written
+These files have been written to `r paste0("data/", params$name)`:
+```{r}
+#| label: list-files-target
+projthis::proj_dir_info(path_target(), tz = "CET") %>% knitr::kable()
+```
