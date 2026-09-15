@@ -13,7 +13,7 @@ Cunli Pan, Jinlong Ru
 - [<span class="toc-section-number">0.4</span> Export Figure S3 panels
   as TIFF](#export-figure-s3-panels-as-tiff)
 
-**Updated: 2026-09-07 17:29:01 CET.**
+**Updated: 2026-09-15 19:45:08 CET.**
 
 The purpose of this document is to characterize the “abundant
 biosphere,” analyzing the distribution patterns, persistence, and host
@@ -216,8 +216,8 @@ p_bubble <- ggplot(df_sum, aes(x = total_abund, y = fct_rev(factor(family)), col
     breaks = pretty(df_sum$total_abund, n = 4)
   ) +
   scale_x_continuous(
-    breaks = seq(0, 0.6, by = 0.2),
-    limits = c(0, 0.6),
+    breaks = seq(0, 1.0, by = 0.2),
+    limits = c(0, 1.0),
     labels = number_format(accuracy = 0.1)
   ) +
   scale_color_manual(
@@ -244,9 +244,6 @@ print(p_bubble)
 
 </details>
 
-    Warning: Removed 3 rows containing missing values or values outside the scale range
-    (`geom_point()`).
-
 ![](07-figs3-abundant-patterns_files/figure-commonmark/FigS3a-bubble-1.png)
 
 <details class="code-fold">
@@ -255,17 +252,6 @@ print(p_bubble)
 ``` r
 # Save
 ggsave(path_target("FigS3a_bubble.png"), p_bubble, width = 8.5, height = 6, dpi = 300)
-```
-
-</details>
-
-    Warning: Removed 3 rows containing missing values or values outside the scale range
-    (`geom_point()`).
-
-<details class="code-fold">
-<summary>Code</summary>
-
-``` r
 write_csv(df_sum, path_target("FigS3a_bubble_data.csv"))
 write_csv(abundant_vOTUs, path_target("FigS3a_abundant_full.csv"))
 

@@ -222,8 +222,8 @@ p_bubble <- ggplot(df_sum, aes(x = total_abund, y = fct_rev(factor(family)), col
     breaks = pretty(df_sum$total_abund, n = 4)
   ) +
   scale_x_continuous(
-    breaks = seq(0, 0.6, by = 0.2),
-    limits = c(0, 0.6),
+    breaks = seq(0, 1.0, by = 0.2),
+    limits = c(0, 1.0),
     labels = number_format(accuracy = 0.1)
   ) +
   scale_color_manual(
