@@ -59,6 +59,5 @@ Thumbs.db
 .pdm-python
 .python-version
 
-# Keep these rendered reports locally; version their QMD sources instead.
-/analyses/01-tse-construction.md
-/analyses/02-fig2-viral diversity.md
+# Track analysis .md reports and explicitly selected preview PNGs for GitHub.
+# Other rendered assets and final TIFF panels remain ignored by the rules above.

@@ -1,0 +1,1419 @@
+# 01-tse-construction
+Cunli Pan, Jinlong Ru
+2025-12-20
+
+- [<span class="toc-section-number">1</span> Tasks](#tasks)
+  - [<span class="toc-section-number">1.1</span> Task 1: Read SQLite
+    Database](#task-1-read-sqlite-database)
+  - [<span class="toc-section-number">1.2</span> Task 2: Build Assay
+    Matrices](#task-2-build-assay-matrices)
+  - [<span class="toc-section-number">1.3</span> Task 3: Build colData
+    (Sample Metadata)](#task-3-build-coldata-sample-metadata)
+  - [<span class="toc-section-number">1.4</span> Task 4: Build feature
+    metadata (rowData)](#task-4-build-feature-metadata-rowdata)
+    - [<span class="toc-section-number">1.4.1</span> 4.2 Ecosystem
+      classification](#42-ecosystem-classification)
+    - [<span class="toc-section-number">1.4.2</span> 4.3 Host
+      predictions](#43-host-predictions)
+    - [<span class="toc-section-number">1.4.3</span> 4.4 Contig
+      linkage](#44-contig-linkage)
+  - [<span class="toc-section-number">1.5</span> Task 5: Task 5:
+    Construct and validate TSE
+    object](#task-5-task-5-construct-and-validate-tse-object)
+    - [<span class="toc-section-number">1.5.1</span> 5.2 Construct
+      TSE](#52-construct-tse)
+    - [<span class="toc-section-number">1.5.2</span> 5.3 Save and
+      validate](#53-save-and-validate)
+
+**Updated: 2026-08-31 21:31:22 CET.**
+
+The purpose of this document is to construct the foundational
+`TreeSummarizedExperiment` (TSE) object by integrating viral abundance
+profiles, taxonomy, host predictions, and ecosystem classification
+metadata from the project’s SQLite database.
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+suppressPackageStartupMessages({
+  library(here)
+  library(tidyverse)
+  library(data.table)
+  library(DBI)
+  library(RSQLite)
+  library(S4Vectors)
+  library(IRanges)
+  library(SummarizedExperiment)
+  library(TreeSummarizedExperiment)
+})
+```
+
+</details>
+
+    Warning: package 'S4Vectors' was built under R version 4.5.3
+
+    Warning: package 'Biobase' was built under R version 4.5.3
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# Load package utility functions
+devtools::load_all(here::here())
+```
+
+</details>
+
+## Tasks
+
+### Task 1: Read SQLite Database
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 1.1 Connect to database
+sqlite_path <- file.path(path_resource, "p0057v2.sqlite")
+stopifnot(file.exists(sqlite_path))
+
+con <- DBI::dbConnect(RSQLite::SQLite(), sqlite_path)
+message("✅ Connected to SQLite: ", basename(sqlite_path))
+```
+
+</details>
+
+    ✅ Connected to SQLite: p0057v2.sqlite
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 1.2 List all tables
+tbls <- DBI::dbListTables(con)
+
+# 1.3 Read core tables
+sample_meta_raw <- DBI::dbReadTable(con, "sample_metadata")
+contig_anno_raw <- DBI::dbReadTable(con, "contig_annotation")
+
+# 1.4 Read abundance tables
+abundance_map <- c(
+  counts           = "abundance_count",
+  tpm              = "abundance_tpm",
+  rpkm             = "abundance_rpkm",
+  reads_per_base   = "abundance_reads_per_base",
+  trimmed_mean     = "abundance_trimmed_mean",
+  covered_fraction = "abundance_covered_fraction"
+)
+
+assay_tbls <- abundance_map[abundance_map %in% tbls]
+if (!length(assay_tbls)) {
+  DBI::dbDisconnect(con)
+  stop("❌ No abundance tables found in SQLite")
+}
+
+assay_dfs <- lapply(assay_tbls, function(tbl_name) {
+  DBI::dbReadTable(con, tbl_name)
+})
+names(assay_dfs) <- names(assay_tbls)
+
+# 1.5 Read AMG tables
+amg_dramv_raw <- DBI::dbReadTable(con, "amg_dramv")
+amg_vibrant_raw <- DBI::dbReadTable(con, "amg_vibrant")
+
+# 1.6 Read Host prediction tables
+host_genus_raw <- DBI::dbReadTable(con, "host_genus")
+host_genome_raw <- DBI::dbReadTable(con, "host_genome")
+
+# 1.7 Read Protein annotation tables
+anno_prot_dramv <- DBI::dbReadTable(con, "anno_prot_dramv")
+anno_prot_eggnog <- DBI::dbReadTable(con, "anno_prot_eggnog")
+anno_prot_phrog <- DBI::dbReadTable(con, "anno_prot_phrog")
+
+# 1.8 Read ARG tables
+anno_arg_abricate <- DBI::dbReadTable(con, "anno_arg_abricate")
+anno_arg_deeparg <- DBI::dbReadTable(con, "anno_arg_deeparg")
+
+# 1.9 Read IMG/VR ecosystem source (external file)
+imgvr_path <- file.path(path_resource, "imgvr_source.tsv")
+if (file.exists(imgvr_path)) {
+  imgvr_raw <- read_tsv(imgvr_path, show_col_types = FALSE)
+} else {
+  warning("⚠️  imgvr_source.tsv not found")
+  imgvr_raw <- NULL
+}
+
+# 1.10 Close connection
+DBI::dbDisconnect(con)
+
+# Summary
+message("✅ Data loaded: ",
+        nrow(sample_meta_raw), " samples, ",
+        nrow(contig_anno_raw), " contigs, ",
+        length(assay_tbls), " abundance tables, ",
+        nrow(amg_dramv_raw) + nrow(amg_vibrant_raw), " AMG entries")
+```
+
+</details>
+
+    ✅ Data loaded: 4 samples, 2493 contigs, 6 abundance tables, 275 AMG entries
+
+### Task 2: Build Assay Matrices
+
+Convert abundance data frames to matrices (vOTU × sample).
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 2.1 Convert abundance data frames to matrices
+# Using safe_to_matrix() from R/utils.R
+assay_mats <- lapply(assay_dfs, safe_to_matrix)
+
+# 2.2 Determine common samples and vOTUs
+all_samples <- lapply(assay_mats, colnames)
+common_samples <- Reduce(base::intersect, all_samples)
+
+all_features <- lapply(assay_mats, rownames)
+common_features <- Reduce(base::intersect, c(list(unique(contig_anno_raw$vOTU_id)), all_features))
+
+stopifnot(length(common_samples) > 0, length(common_features) > 0)
+
+# 2.3 Subset and align assays
+assay_mats <- lapply(assay_mats, function(m) {
+  m[common_features, common_samples, drop = FALSE]
+})
+
+# Verify all assays have same dimensions
+dims <- sapply(assay_mats, dim)
+stopifnot(length(unique(dims[1,])) == 1, length(unique(dims[2,])) == 1)
+
+message("✅ Assays aligned: ", nrow(assay_mats[[1]]), " vOTUs x ",
+        ncol(assay_mats[[1]]), " samples")
+```
+
+</details>
+
+    ✅ Assays aligned: 2488 vOTUs x 4 samples
+
+### Task 3: Build colData (Sample Metadata)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 3.1 Build colData with sample_group mapping
+colData_df <- sample_meta_raw %>%
+  filter(sample_id %in% common_samples) %>%
+  arrange(match(sample_id, common_samples)) %>%
+  mutate(
+    sample_group = case_when(
+      sample_source == "Baltic Sea" ~ "BS",
+      sample_source == "507B" ~ "SA",
+      sample_source == "1327B" ~ "IA",
+      sample_source == "TASF" ~ "DA",
+      TRUE ~ as.character(sample_source)
+    ),
+    sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
+  ) %>%
+  column_to_rownames("sample_id")
+
+# 3.2 Verify alignment
+stopifnot(identical(rownames(colData_df), colnames(assay_mats[[1]])))
+
+message("✅ Sample metadata built: ", nrow(colData_df), " samples (",
+        paste(levels(colData_df$sample_group), collapse = ", "), ")")
+```
+
+</details>
+
+    ✅ Sample metadata built: 4 samples (BS, SA, IA, DA)
+
+### Task 4: Build feature metadata (rowData)
+
+Complete vOTU-level metadata including taxonomy, quality metrics,
+ecosystem classification, host predictions, and contig linkage. \####
+4.1 Base taxonomy and quality metrics
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 4.1.1 Select one representative contig for each vOTU
+#
+# IMPORTANT:
+# The primary catalogue is defined using the length of one representative
+# contig per vOTU. The representative must therefore be selected before
+# applying the >=5 kb threshold.
+#
+# Representative-selection rule used here:
+#   1. longest contig;
+#   2. highest CheckV completeness if lengths are tied;
+#   3. contig_id as a deterministic final tie-breaker.
+#
+# Do not prioritize taxonomy before length. Doing so would select a 3,905-bp
+# contig for vOTU0001 instead of the verified 12,805-bp representative, and a
+# 4,197-bp contig for vOTU0005 instead of the verified 5,132-bp representative.
+
+rep_contigs <- contig_anno_raw %>%
+  mutate(
+    representative_length_bp =
+      suppressWarnings(as.numeric(contig_length)),
+
+    checkv_completeness_num =
+      suppressWarnings(as.numeric(checkv_completeness)),
+
+    checkv_quality_score_num =
+      suppressWarnings(as.numeric(checkv_quality_score))
+  ) %>%
+  filter(vOTU_id %in% common_features) %>%
+  group_by(vOTU_id) %>%
+  arrange(
+    desc(representative_length_bp),
+    desc(checkv_completeness_num),
+    contig_id,
+    .by_group = TRUE
+  ) %>%
+  dplyr::slice_head(n = 1) %>%
+  ungroup()
+
+# Each vOTU must now have exactly one representative contig.
+stopifnot(
+  nrow(rep_contigs) == length(common_features),
+  !anyDuplicated(rep_contigs$vOTU_id)
+)
+
+message(
+  "✅ Representative contigs selected: ",
+  nrow(rep_contigs),
+  " vOTUs"
+)
+```
+
+</details>
+
+    ✅ Representative contigs selected: 2488 vOTUs
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 4.1.2 Calculate vOTU-level contig statistics
+#
+# These statistics describe all contigs assigned to a vOTU.
+# total_length_bp is retained for descriptive purposes only.
+# It must NOT be used to define the >=5 kb primary catalogue.
+
+votu_stats <- contig_anno_raw %>%
+  filter(vOTU_id %in% common_features) %>%
+  group_by(vOTU_id) %>%
+  summarise(
+    n_contigs = n_distinct(contig_id, na.rm = TRUE),
+
+    total_length_bp = sum(
+      suppressWarnings(as.numeric(contig_length)),
+      na.rm = TRUE
+    ),
+
+    .groups = "drop"
+  )
+
+
+# 4.1.3 Convert the original CheckV quality score to the CheckV category
+#
+# The SQLite table contains checkv_quality_score:
+#   1 = Complete
+#   2 = High-quality
+#   3 = Medium-quality
+#   4 = Low-quality
+#   5 = Not-determined
+#
+# Do not reconstruct these categories from completeness alone. CheckV quality
+# categories are not simple completeness bins.
+
+rep_contigs <- rep_contigs %>%
+  mutate(
+    checkv_quality = case_when(
+      checkv_quality_score_num == 1 ~ "Complete",
+      checkv_quality_score_num == 2 ~ "High-quality",
+      checkv_quality_score_num == 3 ~ "Medium-quality",
+      checkv_quality_score_num == 4 ~ "Low-quality",
+      checkv_quality_score_num == 5 ~ "Not-determined",
+      TRUE ~ "Not-determined"
+    ),
+
+    checkv_quality = factor(
+      checkv_quality,
+      levels = c(
+        "Complete",
+        "High-quality",
+        "Medium-quality",
+        "Low-quality",
+        "Not-determined"
+      )
+    ),
+
+    checkv_medium_or_better =
+      as.character(checkv_quality) %in%
+      c("Complete", "High-quality", "Medium-quality"),
+
+    pass_length_3kb =
+      !is.na(representative_length_bp) &
+      representative_length_bp >= 3000,
+
+    pass_length_5kb =
+      !is.na(representative_length_bp) &
+      representative_length_bp >= 5000,
+
+    pass_length_10kb =
+      !is.na(representative_length_bp) &
+      representative_length_bp >= 10000
+  )
+
+
+# 4.1.4 Build the vOTU-level rowData table
+#
+# Taxonomy, CheckV information and predicted replication strategy all come
+# from the selected representative contig.
+
+rowData_base <- rep_contigs %>%
+  transmute(
+    vOTU_id,
+
+    # Representative-contig identity and length
+    representative_contig_id = contig_id,
+    representative_length_bp,
+
+    # Catalogue-membership flags
+    pass_length_3kb,
+    pass_length_5kb,
+    pass_length_10kb,
+
+    # CheckV information
+    checkv_quality_score = checkv_quality_score_num,
+    checkv_quality,
+
+    # Compatibility alias:
+    # keep quality_tier temporarily because older downstream scripts may refer
+    # to this name. It now contains the correct CheckV category.
+    quality_tier = checkv_quality,
+
+    checkv_medium_or_better,
+    checkv_provirus,
+    checkv_completeness =
+      suppressWarnings(as.numeric(checkv_completeness)),
+    checkv_contamination =
+      suppressWarnings(as.numeric(checkv_contamination)),
+    checkv_completeness_method,
+
+    # Viral taxonomy
+    realm,
+    kingdom,
+    phylum,
+    class,
+    order,
+    family,
+    genus,
+    species,
+
+    # geNomad and other viral evidence
+    classify_type,
+    genomad_virus_score =
+      suppressWarnings(as.numeric(genomad_virus_score)),
+    genomad_n_hallmarks =
+      suppressWarnings(as.numeric(genomad_n_hallmarks)),
+    virsorter2_score =
+      suppressWarnings(as.numeric(virsorter2_score)),
+    vibrant_type,
+
+    # Predicted replication strategy
+    lifestyle,
+    bacphlip_lifestyle,
+
+    # vContact3 information
+    vc_id,
+    vc_genus,
+    vc_classified,
+    vc_with_ref,
+    vc_novel_genus
+  ) %>%
+  left_join(
+    votu_stats,
+    by = "vOTU_id"
+  ) %>%
+  arrange(
+    match(vOTU_id, rownames(assay_mats[[1]]))
+  ) %>%
+  column_to_rownames("vOTU_id")
+
+
+# 4.1.5 Validate the representative catalogue
+#
+# Expected catalogue sizes for this project:
+#   >=3 kb: 2,488 vOTUs
+#   >=5 kb:   962 vOTUs
+#   >=10 kb:  273 vOTUs
+#   CheckV medium-quality or better: 55 vOTUs
+
+stopifnot(
+  identical(
+    rownames(rowData_base),
+    rownames(assay_mats[[1]])
+  ),
+
+  nrow(rowData_base) == 2488,
+
+  sum(
+    rowData_base$pass_length_5kb,
+    na.rm = TRUE
+  ) == 962,
+
+  sum(
+    rowData_base$pass_length_10kb,
+    na.rm = TRUE
+  ) == 273,
+
+  sum(
+    rowData_base$checkv_medium_or_better,
+    na.rm = TRUE
+  ) == 55
+)
+
+
+# 4.1.6 Report CheckV quality-category counts
+
+quality_summary <- rowData_base %>%
+  as.data.frame() %>%
+  dplyr::count(
+    checkv_quality,
+    name = "n_vOTUs",
+    .drop = FALSE
+  )
+
+print(quality_summary)
+```
+
+</details>
+
+      checkv_quality n_vOTUs
+    1       Complete       4
+    2   High-quality      12
+    3 Medium-quality      39
+    4    Low-quality    2311
+    5 Not-determined     122
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "✅ 4.1 Base metadata completed: ",
+  nrow(rowData_base),
+  " discovery-catalogue vOTUs"
+)
+```
+
+</details>
+
+    ✅ 4.1 Base metadata completed: 2488 discovery-catalogue vOTUs
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   >=5 kb primary catalogue: ",
+  sum(rowData_base$pass_length_5kb),
+  " vOTUs"
+)
+```
+
+</details>
+
+       >=5 kb primary catalogue: 962 vOTUs
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   >=10 kb catalogue: ",
+  sum(rowData_base$pass_length_10kb),
+  " vOTUs"
+)
+```
+
+</details>
+
+       >=10 kb catalogue: 273 vOTUs
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   CheckV medium-quality or better: ",
+  sum(rowData_base$checkv_medium_or_better),
+  " vOTUs"
+)
+```
+
+</details>
+
+       CheckV medium-quality or better: 55 vOTUs
+
+#### 4.2 Ecosystem classification
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+ #| label: task4.2-ecosystem
+#| message: true
+#| warning: true
+
+if (!is.null(imgvr_raw)) {
+
+  # 4.2.1 Using extract_level5_position5() from R/utils.R
+
+  # 4.2.2 Extract Level 5 from imgvr
+  imgvr_eco <- imgvr_raw %>%
+    select(contig_id, eco_class = `Ecosystem classification`) %>%
+    mutate(level5 = sapply(eco_class, extract_level5_position5)) %>%
+    filter(!is.na(level5)) %>%
+    select(contig_id, eco_level5 = level5) %>%
+    distinct()
+
+  # 4.2.3 Get contig_id for each vOTU
+  votu_to_contig <- rep_contigs %>%
+    filter(vOTU_id %in% rownames(rowData_base)) %>%
+    select(vOTU_id, contig_id)
+
+  # 4.2.4 Merge ecosystem info
+  votu_eco <- votu_to_contig %>%
+    left_join(imgvr_eco, by = "contig_id") %>%
+    select(vOTU_id, eco_level5)
+
+  # 4.2.5 Add to rowData_base
+  rowData_base <- rowData_base %>%
+    rownames_to_column("vOTU_id") %>%
+    left_join(votu_eco, by = "vOTU_id") %>%
+    arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%
+    column_to_rownames("vOTU_id")
+
+  n_with_eco <- sum(!is.na(rowData_base$eco_level5))
+  message("✅ 4.2 Ecosystem: ", n_with_eco, "/", nrow(rowData_base),
+          " vOTUs (", round(n_with_eco/nrow(rowData_base)*100, 1), "%)")
+
+} else {
+  warning("⚠️  Skipping ecosystem annotation (imgvr_source.tsv not loaded)")
+}
+```
+
+</details>
+
+    ✅ 4.2 Ecosystem: 1638/2488 vOTUs (65.8%)
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
+```
+
+</details>
+
+#### 4.3 Host predictions
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 4.3.1 Aggregate host genus predictions
+host_genus_agg <- host_genus_raw %>%
+  filter(vOTU_id %in% rownames(rowData_base)) %>%
+  group_by(vOTU_id) %>%
+  summarise(
+    hostGenusset = paste(unique(Host.genus), collapse = ";"),
+    hostnumbergenus = n_distinct(Host.genus),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    hostSG = case_when(
+      hostnumbergenus == 1 ~ "specialist",
+      hostnumbergenus > 1 ~ "generalist",
+      TRUE ~ NA_character_
+    )
+  )
+
+# 4.3.2 Aggregate host species predictions
+host_species_agg <- host_genome_raw %>%
+  filter(vOTU_id %in% rownames(rowData_base)) %>%
+  group_by(vOTU_id) %>%
+  summarise(
+    hostSpeciesset = paste(unique(Host.taxonomy), collapse = ";"),
+    hostnumberspecies = n_distinct(Host.taxonomy),
+    .groups = "drop"
+  )
+
+# 4.3.3 Merge host info into rowData
+rowData_base <- rowData_base %>%
+  rownames_to_column("vOTU_id") %>%
+  left_join(host_genus_agg, by = "vOTU_id") %>%
+  left_join(host_species_agg, by = "vOTU_id") %>%
+  arrange(match(vOTU_id, rownames(assay_mats[[1]]))) %>%
+  column_to_rownames("vOTU_id")
+
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
+
+n_with_host <- sum(!is.na(rowData_base$hostGenusset))
+message("✅ 4.3 Host predictions: ", n_with_host, "/", nrow(rowData_base),
+        " vOTUs (", round(n_with_host/nrow(rowData_base)*100, 1), "%)")
+```
+
+</details>
+
+    ✅ 4.3 Host predictions: 909/2488 vOTUs (36.5%)
+
+#### 4.4 Contig linkage
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 4.4.1 Build vOTU → contig mapping
+bridge_votu_contig <- contig_anno_raw %>%
+  filter(!is.na(vOTU_id), !is.na(contig_id),
+         vOTU_id != "", contig_id != "",
+         vOTU_id %in% rownames(rowData_base)) %>%
+  distinct(vOTU_id, contig_id) %>%
+  arrange(vOTU_id, contig_id)
+
+# 4.4.2 Create CharacterList
+v2c_map <- split(bridge_votu_contig$contig_id, bridge_votu_contig$vOTU_id)
+v2c_map <- lapply(v2c_map, unique)
+
+lookup <- function(id) {
+  x <- v2c_map[[id]]
+  if (is.null(x)) character(0) else as.character(x)
+}
+
+votu_ids_ordered <- rownames(rowData_base)
+contigs_aligned <- lapply(votu_ids_ordered, lookup)
+contig_ids_list <- IRanges::CharacterList(contigs_aligned)
+names(contig_ids_list) <- votu_ids_ordered
+
+# 4.4.3 Add to rowData
+rowData_base$contig_ids <- contig_ids_list
+
+stopifnot(identical(rownames(rowData_base), rownames(assay_mats[[1]])))
+
+message("✅ 4.4 Contig linkage: ", nrow(bridge_votu_contig), " edges, ",
+        sum(lengths(contig_ids_list) > 1), " multi-contig vOTUs")
+```
+
+</details>
+
+    ✅ 4.4 Contig linkage: 2493 edges, 5 multi-contig vOTUs
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# Final rowData summary
+message("✅ Task 4 completed: rowData with ", ncol(rowData_base), " columns")
+```
+
+</details>
+
+    ✅ Task 4 completed: rowData with 42 columns
+
+### Task 5: Task 5: Construct and validate TSE object
+
+Prepare metadata, construct TreeSummarizedExperiment, and validate
+output. \#### 5.1 Prepare metadata list
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# Prepare complete metadata list
+metadata_list <- list(
+  # Construction info
+  construction_info = list(
+  created_date = Sys.Date(),
+  created_time = Sys.time(),
+  sqlite_path = normalizePath(sqlite_path),
+
+  n_samples_raw = nrow(sample_meta_raw),
+  n_samples = length(common_samples),
+
+  n_votus_raw =
+    length(unique(contig_anno_raw$vOTU_id)),
+
+  n_votus_discovery =
+    nrow(rowData_base),
+
+  n_votus_primary_5kb =
+    sum(rowData_base$pass_length_5kb),
+
+  n_votus_10kb =
+    sum(rowData_base$pass_length_10kb),
+
+  n_votus_checkv_medium_or_better =
+    sum(rowData_base$checkv_medium_or_better),
+
+  assays_loaded =
+    names(assay_mats),
+
+  strategy_representative_contig =
+    "longest representative contig > CheckV completeness > contig_id",
+
+  primary_catalogue_definition =
+    "representative contig length >= 5000 bp",
+
+  permissive_detection_definition =
+    "TPM > 0",
+
+  higher_confidence_detection_definition =
+    "covered fraction >= 0.5"
+  ),
+
+  # Protein annotations
+  anno_prot_dramv = anno_prot_dramv,
+  anno_prot_eggnog = anno_prot_eggnog,
+  anno_prot_phrog = anno_prot_phrog,
+
+  # AMG tables
+  amg_dramv = amg_dramv_raw,
+  amg_vibrant = amg_vibrant_raw,
+
+  # ARG tables
+  anno_arg_abricate = anno_arg_abricate,
+  anno_arg_deeparg = anno_arg_deeparg,
+
+  # Host prediction edge tables
+  host_genus_edges = host_genus_raw,
+  host_genome_edges = host_genome_raw,
+
+  # Contig linkage info
+  linkage_info = list(
+    n_votu_contig_edges = nrow(bridge_votu_contig),
+    multi_contig_votus = names(v2c_map)[lengths(v2c_map) > 1],
+    n_multi_contig_votus = sum(lengths(v2c_map) > 1)
+  )
+)
+
+# Add complete contig annotation
+metadata_list$contig_annotation <- contig_anno_raw %>%
+  filter(vOTU_id %in% rownames(rowData_base))
+
+# Add complete imgvr source if available
+if (!is.null(imgvr_raw)) {
+  metadata_list$imgvr_source <- imgvr_raw
+}
+
+message("✅ 5.1 Metadata prepared: ", length(metadata_list), " components")
+```
+
+</details>
+
+    ✅ 5.1 Metadata prepared: 13 components
+
+#### 5.2 Construct TSE
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+stopifnot(
+  identical(
+    rownames(assay_mats[[1]]),
+    rownames(rowData_base)
+  ),
+
+  identical(
+    colnames(assay_mats[[1]]),
+    rownames(colData_df)
+  )
+)
+
+message("✅ 5.2 Input dimensions verified")
+```
+
+</details>
+
+    ✅ 5.2 Input dimensions verified
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 5.2.2 Construct the complete discovery-catalogue TSE
+#
+# This object contains all 2,488 vOTUs. It is retained for sensitivity
+# analyses involving the >=3 kb catalogue and genome-recovery effects.
+
+tse_discovery <- TreeSummarizedExperiment(
+  assays = S4Vectors::SimpleList(assay_mats),
+  colData = S4Vectors::DataFrame(colData_df),
+  rowData = S4Vectors::DataFrame(rowData_base),
+  metadata = metadata_list
+)
+
+stopifnot(
+  nrow(tse_discovery) == 2488,
+  ncol(tse_discovery) == 4
+)
+
+metadata(tse_discovery)$catalogue_info <- list(
+  catalogue_name = "Discovery catalogue",
+  catalogue_size = 2488,
+  representative_length_threshold_bp = 3000,
+  tpm_normalisation =
+    "Original TPM normalisation across the 2,488-vOTU catalogue"
+)
+
+message(
+  "✅ Discovery TSE constructed: ",
+  nrow(tse_discovery),
+  " vOTUs × ",
+  ncol(tse_discovery),
+  " samples"
+)
+```
+
+</details>
+
+    ✅ Discovery TSE constructed: 2488 vOTUs × 4 samples
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 5.2.3 Subset the >=5 kb primary catalogue
+
+primary_ids <- rownames(tse_discovery)[
+  rowData(tse_discovery)$pass_length_5kb
+]
+
+stopifnot(
+  length(primary_ids) == 962,
+  !anyDuplicated(primary_ids)
+)
+
+tse_primary <- tse_discovery[
+  primary_ids,
+  ,
+  drop = FALSE
+]
+
+stopifnot(
+  nrow(tse_primary) == 962,
+  ncol(tse_primary) == 4
+)
+
+
+# 5.2.4 Preserve the source TPM values
+#
+# The SQLite TPM matrix was normalised across all 2,488 discovery vOTUs.
+# After subsetting to 962 vOTUs, preserve those source values under an
+# unambiguous assay name.
+
+assay(
+  tse_primary,
+  "tpm_source_2488"
+) <- assay(
+  tse_primary,
+  "tpm"
+)
+
+
+# 5.2.5 Renormalise TPM within the 962-vOTU primary catalogue
+
+tpm_primary_source <- assay(
+  tse_primary,
+  "tpm_source_2488"
+)
+
+tpm_primary_totals <- colSums(
+  tpm_primary_source,
+  na.rm = TRUE
+)
+
+stopifnot(
+  all(is.finite(tpm_primary_totals)),
+  all(tpm_primary_totals > 0)
+)
+
+tpm_primary_renormalised <- sweep(
+  tpm_primary_source,
+  2,
+  tpm_primary_totals,
+  "/"
+) * 1e6
+
+assay(
+  tse_primary,
+  "tpm"
+) <- tpm_primary_renormalised
+
+
+# 5.2.6 Record the primary-catalogue definition
+
+metadata(tse_primary)$catalogue_info <- list(
+  catalogue_name = "Primary catalogue",
+  catalogue_size = 962,
+  representative_length_threshold_bp = 5000,
+
+  representative_selection =
+    "longest contig > CheckV completeness > contig_id",
+
+  tpm_assay =
+    "Renormalised within the retained 962-vOTU catalogue to 1e6 per sample",
+
+  tpm_source_2488_assay =
+    "Original source TPM values inherited from the 2,488-vOTU catalogue",
+
+  counts_assay =
+    "Original mapped read counts; not renormalised",
+
+  covered_fraction_assay =
+    "Original covered fraction; not renormalised"
+)
+
+
+# 5.2.7 Validate TPM normalisation
+
+stopifnot(
+  all(
+    abs(
+      colSums(
+        assay(tse_primary, "tpm"),
+        na.rm = TRUE
+      ) - 1e6
+    ) < 1
+  )
+)
+
+message(
+  "✅ Primary TSE constructed: ",
+  nrow(tse_primary),
+  " vOTUs × ",
+  ncol(tse_primary),
+  " samples"
+)
+```
+
+</details>
+
+    ✅ Primary TSE constructed: 962 vOTUs × 4 samples
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   Discovery assays: ",
+  paste(
+    assayNames(tse_discovery),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+       Discovery assays: counts, tpm, rpkm, reads_per_base, trimmed_mean, covered_fraction
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   Primary assays: ",
+  paste(
+    assayNames(tse_primary),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+       Primary assays: counts, tpm, rpkm, reads_per_base, trimmed_mean, covered_fraction, tpm_source_2488
+
+#### 5.3 Save and validate
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 5.3.1 Save TSE
+# 5.3.1 Define explicit output paths
+#
+# Do not use an ambiguous file name such as tse.rds. Downstream analyses must
+# state whether they use the complete discovery catalogue or the primary
+# >=5 kb catalogue.
+
+discovery_output_path <- path_target(
+  "tse_discovery_2488.rds"
+)
+
+primary_output_path <- path_target(
+  "tse_primary_962.rds"
+)
+
+
+# 5.3.2 Save both TSE objects
+
+saveRDS(
+  tse_discovery,
+  discovery_output_path
+)
+
+saveRDS(
+  tse_primary,
+  primary_output_path
+)
+
+
+# 5.3.3 Export a compact catalogue manifest
+#
+# This CSV contains one row per discovery-catalogue vOTU and records which
+# filtering scenarios it belongs to.
+
+catalogue_manifest <- rowData(tse_discovery) %>%
+  as.data.frame() %>%
+  rownames_to_column("vOTU_id") %>%
+  dplyr::select(
+    vOTU_id,
+    representative_contig_id,
+    representative_length_bp,
+
+    checkv_completeness,
+    checkv_quality_score,
+    checkv_quality,
+    checkv_medium_or_better,
+
+    pass_length_3kb,
+    pass_length_5kb,
+    pass_length_10kb,
+
+    realm,
+    kingdom,
+    phylum,
+    class,
+    order,
+    family,
+    genus,
+    species,
+
+    lifestyle,
+    bacphlip_lifestyle,
+
+    n_contigs,
+    total_length_bp
+  )
+
+write_csv(
+  catalogue_manifest,
+  path_target("votu_catalogue_manifest_2488.csv")
+)
+
+
+# 5.3.4 Export the primary-catalogue manifest
+
+primary_manifest <- catalogue_manifest %>%
+  filter(pass_length_5kb)
+
+stopifnot(
+  nrow(primary_manifest) == 962
+)
+
+write_csv(
+  primary_manifest,
+  path_target("votu_primary_manifest_962.csv")
+)
+
+
+# 5.3.5 Save session information
+
+session_info_path <- path_target(
+  "session_info.txt"
+)
+
+writeLines(
+  capture.output(sessionInfo()),
+  session_info_path
+)
+
+
+# 5.3.6 Reload both files and validate the saved objects
+
+tse_discovery_reload <- readRDS(
+  discovery_output_path
+)
+
+tse_primary_reload <- readRDS(
+  primary_output_path
+)
+
+validation_passed <- all(
+  identical(
+    dim(tse_discovery_reload),
+    c(2488L, 4L)
+  ),
+
+  identical(
+    dim(tse_primary_reload),
+    c(962L, 4L)
+  ),
+
+  "amg_dramv" %in%
+    names(metadata(tse_discovery_reload)),
+
+  "host_genome_edges" %in%
+    names(metadata(tse_discovery_reload)),
+
+  "representative_contig_id" %in%
+    colnames(rowData(tse_discovery_reload)),
+
+  "representative_length_bp" %in%
+    colnames(rowData(tse_discovery_reload)),
+
+  "pass_length_5kb" %in%
+    colnames(rowData(tse_discovery_reload)),
+
+  "checkv_quality" %in%
+    colnames(rowData(tse_discovery_reload)),
+
+  "sample_group" %in%
+    colnames(colData(tse_discovery_reload)),
+
+  "tpm_source_2488" %in%
+    assayNames(tse_primary_reload),
+
+  all(
+    abs(
+      colSums(
+        assay(tse_primary_reload, "tpm"),
+        na.rm = TRUE
+      ) - 1e6
+    ) < 1
+  )
+)
+
+if (!validation_passed) {
+  stop("❌ Validation failed")
+}
+
+message(
+  "✅ Validation passed: both TSE objects are ready"
+)
+```
+
+</details>
+
+    ✅ Validation passed: both TSE objects are ready
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+# 5.3.7 Display final summary
+
+message("\n=== Final TSE Summary ===")
+```
+
+</details>
+
+
+    === Final TSE Summary ===
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Discovery catalogue: ",
+  nrow(tse_discovery_reload),
+  " vOTUs × ",
+  ncol(tse_discovery_reload),
+  " samples"
+)
+```
+
+</details>
+
+    Discovery catalogue: 2488 vOTUs × 4 samples
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Primary catalogue: ",
+  nrow(tse_primary_reload),
+  " vOTUs × ",
+  ncol(tse_primary_reload),
+  " samples"
+)
+```
+
+</details>
+
+    Primary catalogue: 962 vOTUs × 4 samples
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Sample groups: ",
+  paste(
+    levels(colData(tse_primary_reload)$sample_group),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+    Sample groups: BS, SA, IA, DA
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Discovery assays: ",
+  paste(
+    assayNames(tse_discovery_reload),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+    Discovery assays: counts, tpm, rpkm, reads_per_base, trimmed_mean, covered_fraction
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Primary assays: ",
+  paste(
+    assayNames(tse_primary_reload),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+    Primary assays: counts, tpm, rpkm, reads_per_base, trimmed_mean, covered_fraction, tpm_source_2488
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "Primary TPM column sums: ",
+  paste(
+    round(
+      colSums(
+        assay(tse_primary_reload, "tpm")
+      ),
+      2
+    ),
+    collapse = ", "
+  )
+)
+```
+
+</details>
+
+    Primary TPM column sums: 1e+06, 1e+06, 1e+06, 1e+06
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message("\n✅ Files saved:")
+```
+
+</details>
+
+
+    ✅ Files saved:
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   - ",
+  basename(discovery_output_path)
+)
+```
+
+</details>
+
+       - tse_discovery_2488.rds
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   - ",
+  basename(primary_output_path)
+)
+```
+
+</details>
+
+       - tse_primary_962.rds
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   - votu_catalogue_manifest_2488.csv"
+)
+```
+
+</details>
+
+       - votu_catalogue_manifest_2488.csv
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   - votu_primary_manifest_962.csv"
+)
+```
+
+</details>
+
+       - votu_primary_manifest_962.csv
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
+message(
+  "   - ",
+  basename(session_info_path)
+)
+```
+
+</details>
+
+       - session_info.txt
