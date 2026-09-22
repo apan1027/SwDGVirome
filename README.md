@@ -1,97 +1,59 @@
-# Depth Stratifies Viral Survival Strategies in a Deep Granitic Aquifer
+# SwDGVirome: viral communities in Baltic Sea water and a deep granitic aquifer
 
 ## Overview
-This repository contains the analytical workflow for investigating depth-associated stratification of viral communities (0–450 m) in deep groundwater at the Äspö Hard Rock Laboratory (Sweden).
 
-## Key Results
-- **Viral Diversity**: 2,488 viral operational taxonomic units (vOTUs) identified across four depth zones.
-- **Lifestyle Stratification**: Viral lifestyle metrics suggest increasing prevalence of lysogeny with depth.
-- **Metabolic Potential**: Auxiliary metabolic genes (AMGs) show depth-stratified patterns consistent with environmental and host metabolic differences.
+This repository contains the analysis notebooks for four samples from Baltic Sea water and the Äspö Hard Rock Laboratory (Sweden). The discovery catalogue contains 2,488 vOTUs; the primary catalogue contains 962 representatives. Comparisons among the four unreplicated samples are descriptive: sampling depth covaries with other environmental properties and is not isolated as a causal factor.
 
-## Repository Structure
-- `analyses/`: Quarto analysis notebooks used to generate figures/tables.
-- `R/`: Helper functions and internal package code.
-- `analyses/data/`: Processed data storage (not tracked by git).
-- `analyses/data/00-raw/d00-resource/`: Input data directory (see "Input Data" below).
-- `DESCRIPTION`: Project metadata and complete dependency list.
+Predicted temperate fractions in Figures 2 and 3 are calculated as T/(T + V), using the summed TPM of predicted temperate and virulent vOTUs within the relevant sample or abundance group. Figure S2 instead reports count-based fractions for the discovery catalogue. Table S3 summarises quality-stratified results for the primary catalogue. Fractions are displayed on a 0–1 scale.
 
 ## Installation
 
-This project is structured as an R package to ensure reproducibility and easy dependency management.
+Requirements: R >= 4.2, Quarto CLI and its Pandoc installation, and the R dependencies declared in `DESCRIPTION`. The current workflow has been exercised with R 4.5. The notebooks use fonts including Arial and Times; local font availability can affect rendering.
 
-### Prerequisites
-- **R** (>= 4.2)
-- **Quarto CLI** (for rendering analysis reports)
+```bash
+git clone --branch dev_pan https://github.com/apan1027/SwDGVirome.git
+cd SwDGVirome
+```
 
-### Installation
-
-You can install the package and all its dependencies directly from GitHub using [pak](https://pak.r-lib.org/):
+Install dependencies from the repository root in R:
 
 ```r
-# Install pak if not already available
-if (!require("pak")) install.packages("pak")
-
-# Install directly from GitHub
-pak::pak("apan1027/SwDGVirome")
+if (!requireNamespace("pak", quietly = TRUE)) install.packages("pak")
+pak::pak()
 ```
 
-### Local Development / Analysis
-If you want to run the analysis notebooks locally:
+## Inputs and execution
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/apan1027/SwDGVirome.git
-   cd SwDGVirome
-   ```
+The repository tracks selected required inputs; most generated outputs and local archives are ignored.
 
-2. **Initialize dependencies:**
-   Open the project in your IDE (RStudio/Positron) and run:
-   ```r
-   pak::pak()
-   ```
+- `analyses/data/00-raw/d00-resource/p0057v2.sqlite` and `imgvr_source.tsv`: input database and IMG/VR metadata for step 01.
+- `analyses/data/00-raw/d11-figs8-public-reference/`: the two archived CSV inputs for Figure S8 and Table S2.
+- `analyses/data/16-amg-targeted-validation/`: three archived inputs used by step 10. This historical directory is still required; there is no additional step 16 to run.
 
-## Workflow Overview
+Run step 01 before the analyses that use its TSE objects. Step 09 additionally requires the output of step 04. Step 04 queries KEGG online, so successful annotation requires network access to KEGG. Check the query logs as well as render completion: failed queries can produce missing annotations or fallback classifications.
 
-The analysis pipeline involves sequential execution of Quarto documents. For a detailed list of scripts and execution order, please refer to the [Analyses README](analyses/README.md).
-
-**Key Steps:**
-1.  **Data Construction**: Build the core data object from raw database files.
-2.  **Visualisation**: Generate main and supplementary figures for the manuscript.
-
-## Usage
-
-### 1. Prepare Input Data
-Ensure the following files are placed in the resource directory `analyses/data/00-raw/d00-resource/`:
-*   `p0057v2.sqlite`: Main project database.
-*   `imgvr_source.tsv`: IMG/VR ecosystem source metadata.
-
-### 2. Run Analysis
-You can run the full workflow or individual steps using Quarto.
-
-**Example:**
 ```bash
-# Step 1: Construct the TSE object (Required)
 quarto render analyses/01-tse-construction.qmd
-
-# Step 2: Run downstream analyses
-quarto render analyses/02-fig2-viral-diversity.qmd
+quarto render "analyses/02-fig2-viral diversity.qmd"
 ```
-See [analyses/README.md](analyses/README.md) for the complete execution order.
 
-## Sample Groups
+See [analyses/README.md](analyses/README.md) for the complete 01–11 notebook list and supplementary-table mapping. For GitHub-readable reports, render the relevant notebook with `--to gfm` and include its referenced preview images.
 
-| Code | Description | Depth Range |
-|------|-------------|-------------|
-| **BS** | Baltic Sea | Surface (0 m) |
-| **SA** | Shallow Aquifer | 71 m |
-| **IA** | Intermediate Aquifer | 196 m |
-| **DA** | Deep Aquifer | 450 m |
+## Sample groups
 
-## Output
-Outputs are organized by script name in the `analyses/data/` directory. Each folder contains high-resolution figures, source data tables, and R session information.
+| Code | Description | Sampling depth |
+|------|-------------|----------------|
+| BS | Baltic Sea | 0 m |
+| SA | Shallow aquifer | 71 m |
+| IA | Intermediate aquifer | 196 m |
+| DA | Deep aquifer | 450 m |
+
+## Outputs and reproducibility scope
+
+Generated files are placed in `analyses/data/<step-name>/`. Selected Markdown reports, preview images and source tables are tracked for inspection. Figure 2b uses random rarefaction without a fixed seed, so rerun curves may vary.
+
+Step 10 redraws genomic context and presents archived structure-comparison evidence; it does not rerun structure prediction or alignment. Step 11 redraws published coverage records and exports an archived reference-match table; it does not rerun mapping or sequence alignment. The Table S3 CSV files are generated by step 06; the separately formatted submission Excel workbook is not generated by that notebook.
 
 ## Contact
-**Project Maintainer**: Cunli Pan (cunli.pan@tum.de)
-**Repository**: [apan1027/SwDGVirome](https://github.com/apan1027/SwDGVirome)
 
-
+Project maintainer: Cunli Pan (cunli.pan@tum.de).

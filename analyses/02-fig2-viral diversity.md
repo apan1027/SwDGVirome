@@ -20,10 +20,8 @@ Cunli Pan, Jinlong Ru
     Proportion](#figure-2f---environmental-source-and-novel-genus-proportion)
   - [<span class="toc-section-number">1.8</span> Figure 2g - Host Phylum
     Prediction](#figure-2g---host-phylum-prediction)
-  - [<span class="toc-section-number">1.9</span> Export final panels as
-    TIFF for Inkscape](#export-final-panels-as-tiff-for-inkscape)
 
-**Updated: 2026-09-07 17:29:01 CET.**
+**Updated: 2026-09-20 18:49:28 CET.**
 
 The purpose of this document is to analyze and visualize viral alpha and
 beta diversity across different sample groups (depths), utilizing
@@ -566,27 +564,54 @@ lifestyle_abundance <- df_lifestyle %>%
   group_by(sample_group, lifestyle) %>%
   summarise(total_abundance = sum(TPM), .groups = "drop")
 
-# Calculate ratio
-ratio_data <- lifestyle_abundance %>%
-  pivot_wider(names_from = lifestyle, values_from = total_abundance) %>%
-  mutate(lysogenic_lytic_ratio = lysogenic / lytic) %>%
-  select(sample_group, lysogenic, lytic, lysogenic_lytic_ratio)
+# Calculate fraction
+fraction_data <- lifestyle_abundance %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = total_abundance,
+    values_fill = 0
+  ) %>%
+  mutate(
+    classified_TPM = lysogenic + lytic,
+    temperate_fraction = if_else(
+      classified_TPM > 0,
+      lysogenic / classified_TPM,
+      NA_real_
+    ),
+    fraction_percent = 100 * temperate_fraction
+  ) %>%
+  select(
+    sample_group, lysogenic, lytic,
+    classified_TPM, temperate_fraction, fraction_percent
+  )
 
 # Create plot
-p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio,
-                                   color = sample_group)) +
+p_fig2d <- ggplot(
+  fraction_data,
+  aes(
+    x = sample_group,
+    y = temperate_fraction,
+    color = sample_group
+  )
+) +
   geom_point(size = 5, alpha = 0.8) +
-  geom_line(aes(group = 1), color = "gray50", size = 0.8, linetype = "solid") +
-  scale_y_continuous(
-    limits = c(0, max(ratio_data$lysogenic_lytic_ratio) * 1.2),
-    breaks = seq(0, 0.4, 0.1),
-    expand = expansion(mult = c(0, 0.05))
+  geom_line(
+    aes(group = 1),
+    color = "gray50",
+    linewidth = 0.8,
+    linetype = "solid"
+  ) +
+scale_y_continuous(
+  limits = c(0, 0.25),
+  breaks = seq(0, 0.25, 0.05),
+  labels = scales::label_number(accuracy = 0.01),
+  expand = expansion(mult = c(0, 0.05))
   ) +
   scale_color_manual(values = sample_colors) +
-  labs(
-    x = NULL,
-    y = "The ratio of lysogenic/lytic cycle"
-  ) +
+labs(
+  x = NULL,
+  y = "Predicted temperate fraction"
+) +
   theme_fig2() +
   theme(legend.position = "none")
 
@@ -601,9 +626,36 @@ print(p_fig2d)
 <summary>Code</summary>
 
 ``` r
+# Save PNG
+ggsave(
+  path_target("Fig2d.png"),
+  plot = p_fig2d,
+  width = 5, height = 6, dpi = 300
+)
+
+# Save source data
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
+
+message("✅ Figure 2d completed")
+```
+
+</details>
+
+    ✅ Figure 2d completed
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save
 ggsave(path_target("Fig2d.png"), plot = p_fig2d, width = 5, height = 6, dpi = 300)
-write_csv(ratio_data, path_target("Fig2d_ratio_data.csv"))
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
 
 message("✅ Figure 2d completed")
 ```
@@ -1159,5 +1211,3 @@ message("✅ Figure 2g completed")
 </details>
 
     ✅ Figure 2g completed
-
-### Export final panels as TIFF for Inkscape

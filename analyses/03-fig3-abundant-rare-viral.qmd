@@ -240,14 +240,12 @@ message("✅ Fig 3a completed\n")
 
 ```
 
-#### Fig 3b: Lysogenic/Lytic Ratio
-
+#### Fig 3b: Predicted temperate fraction
 ```{r}
 #| label: fig3b-plot
 #| message: true
 #| fig.width: 4.5
 #| fig.height: 4
-
 # Get lifestyle data
 abundant_lifestyle <- abundant_vOTUs %>%
  dplyr::left_join(
@@ -262,7 +260,6 @@ abundant_lifestyle <- abundant_vOTUs %>%
     )
   ) %>%
   filter(!is.na(lifestyle_clean))
-
 # Calculate abundance per lifestyle
 lifestyle_abundance <- abundant_lifestyle %>%
   group_by(sample_group, lifestyle_clean) %>%
@@ -271,36 +268,37 @@ lifestyle_abundance <- abundant_lifestyle %>%
     n_vOTUs = n(),
     .groups = "drop"
   )
-
-# Calculate ratio
-ratio_data <- lifestyle_abundance %>%
+# Calculate within-group temperate fraction
+fraction_data <- lifestyle_abundance %>%
   pivot_wider(
     names_from = lifestyle_clean,
     values_from = c(total_rel_abundance, n_vOTUs),
     values_fill = 0
   ) %>%
   mutate(
-    lysogenic_lytic_ratio = if_else(
-      total_rel_abundance_lytic > 0,
-      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+    classified_rel_abundance = total_rel_abundance_lysogenic + total_rel_abundance_lytic,
+    temperate_fraction = if_else(
+      classified_rel_abundance > 0,
+      total_rel_abundance_lysogenic / classified_rel_abundance,
       NA_real_
     ),
     sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
   ) %>%
-  filter(!is.na(lysogenic_lytic_ratio))
-
+  filter(!is.na(temperate_fraction))
 # Create plot
-p_fig3b <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio)) +
+p_fig3b <- ggplot(fraction_data, aes(x = sample_group, y = temperate_fraction)) +
   geom_bar(stat = "identity", fill = "#9970AB", color = "black", width = 0.6, linewidth = 0.5) +
   geom_text(
     aes(label = if_else(n_vOTUs_lysogenic > 0, sprintf("n=%d", n_vOTUs_lysogenic), "")),
     vjust = -0.5, size = 5, fontface = "italic", family = "Times"
   ) +
   scale_y_continuous(
-    limits = c(0, max(ratio_data$lysogenic_lytic_ratio) * 1.2),
+    limits = c(0, 0.25),
+    breaks = seq(0, 0.25, 0.05),
+    labels = scales::label_number(accuracy = 0.01),
     expand = expansion(mult = c(0, 0.05))
   ) +
-  labs(x = NULL, y = "Predicted ratio of lysogenic/lytic") +
+  labs(x = NULL, y = "Predicted temperate fraction") +
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
@@ -312,19 +310,12 @@ p_fig3b <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio)) 
     axis.title.y = element_text(size = 16, face = "plain", family = "Times"),
     plot.margin = margin(15, 20, 10, 10)
   )
-
 print(p_fig3b)
-
 # Save
 ggsave(path_target("Fig3b.png"), plot = p_fig3b, width = 4.5, height = 4, dpi = 300)
-write_csv(ratio_data, path_target("Fig3b_ratio_data.csv"))
-
+write_csv(fraction_data, path_target("Fig3b_fraction_data.csv"))
 message("✅ Fig 3b completed\n")
-
 ```
-
-
-
 
 #### Fig 3c: Venn Diagram
 ```{r}
@@ -494,15 +485,12 @@ message("✅ Fig 3d completed\n")
 
 ```
 
-
-#### Fig 3e: Lysogenic/Lytic Ratio
-
+#### Fig 3e: Predicted temperate fraction
 ```{r}
 #| label: fig3e-plot
 #| message: true
 #| fig.width: 4.5
 #| fig.height: 4
-
 # Get lifestyle data for rare vOTUs
 rare_lifestyle <- rare_vOTUs %>%
   dplyr::left_join(
@@ -520,12 +508,10 @@ rare_lifestyle <- rare_vOTUs %>%
     )
   ) %>%
   dplyr::filter(!is.na(lifestyle_clean))
-
 cat("Rare vOTUs with lifestyle annotation:\n")
 lifestyle_table_rare <- table(rare_lifestyle$sample_group, rare_lifestyle$lifestyle_clean)
 print(lifestyle_table_rare)
 cat("\n")
-
 # Calculate abundance per lifestyle
 lifestyle_abundance_rare <- rare_lifestyle %>%
   group_by(sample_group, lifestyle_clean) %>%
@@ -534,47 +520,46 @@ lifestyle_abundance_rare <- rare_lifestyle %>%
     n_vOTUs = n(),
     .groups = "drop"
   )
-
 cat("Lifestyle abundance summary:\n")
 print(lifestyle_abundance_rare)
 cat("\n")
-
-# Calculate ratio
-ratio_data_rare <- lifestyle_abundance_rare %>%
+# Calculate within-group temperate fraction
+fraction_data_rare <- lifestyle_abundance_rare %>%
   pivot_wider(
     names_from = lifestyle_clean,
     values_from = c(total_rel_abundance, n_vOTUs),
     values_fill = 0
   ) %>%
   mutate(
-    lysogenic_lytic_ratio = if_else(
-      total_rel_abundance_lytic > 0,
-      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+    classified_rel_abundance = total_rel_abundance_lysogenic + total_rel_abundance_lytic,
+    temperate_fraction = if_else(
+      classified_rel_abundance > 0,
+      total_rel_abundance_lysogenic / classified_rel_abundance,
       NA_real_
     ),
     sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
   ) %>%
-  dplyr::filter(!is.na(lysogenic_lytic_ratio))
-
-cat("Lysogenic/Lytic ratio (abundance-based):\n")
-print(ratio_data_rare %>%
-  dplyr::select(sample_group, lysogenic_lytic_ratio,
+  dplyr::filter(!is.na(temperate_fraction))
+cat("Predicted temperate fraction (within rare group):\n")
+print(fraction_data_rare %>%
+  dplyr::select(sample_group, temperate_fraction,
          n_vOTUs_lysogenic, n_vOTUs_lytic,
          total_rel_abundance_lysogenic, total_rel_abundance_lytic))
 cat("\n")
-
 # Create bar chart (same style as Fig 3b)
-p_fig3e <- ggplot(ratio_data_rare, aes(x = sample_group, y = lysogenic_lytic_ratio)) +
+p_fig3e <- ggplot(fraction_data_rare, aes(x = sample_group, y = temperate_fraction)) +
   geom_bar(stat = "identity", fill = "#9970AB", color = "black", width = 0.6, linewidth = 0.5) +
   geom_text(
     aes(label = if_else(n_vOTUs_lysogenic > 0, sprintf("n=%d", n_vOTUs_lysogenic), "")),
     vjust = -0.5, size = 5, fontface = "italic", family = "Times"
   ) +
   scale_y_continuous(
-    limits = c(0, max(ratio_data_rare$lysogenic_lytic_ratio) * 1.2),
+    limits = c(0, 0.25),
+    breaks = seq(0, 0.25, 0.05),
+    labels = scales::label_number(accuracy = 0.01),
     expand = expansion(mult = c(0, 0.05))
   ) +
-  labs(x = NULL, y = "Predicted ratio of lysogenic/lytic") +
+  labs(x = NULL, y = "Predicted temperate fraction") +
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
@@ -587,16 +572,14 @@ p_fig3e <- ggplot(ratio_data_rare, aes(x = sample_group, y = lysogenic_lytic_rat
     axis.title.x = element_blank(),
     plot.margin = margin(15, 20, 10, 10)
   )
-
 print(p_fig3e)
-
 # Save
 ggsave(path_target("Fig3e.png"), plot = p_fig3e, width = 4.5, height = 4, dpi = 300)
-write_csv(ratio_data_rare, path_target("Fig3e_ratio_data.csv"))
-
+write_csv(fraction_data_rare, path_target("Fig3e_fraction_data.csv"))
 message("✅ Fig 3e completed\n")
-
 ```
+
+
 
 
 #### Fig 3f: Venn Diagram
@@ -719,121 +702,4 @@ ggsave(
 
 message("✅ Fig3 d–f combined saved\n")
 
-```
-
-### Export Figure 3 panels as TIFF
-
-```{r}
-#| label: export-fig3-tiff
-#| include: false
-#| message: true
-#| warning: false
-
-# Create one folder for all Figure 3 TIFF panels
-tiff_dir <- path_target("tiff_panels")
-dir.create(
-  tiff_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
-
-# Export ggplot/patchwork objects as 600-dpi TIFF
-save_tiff <- function(plot, filename, width, height) {
-  ggsave(
-    filename = file.path(tiff_dir, filename),
-    plot = plot,
-    device = "tiff",
-    width = width,
-    height = height,
-    units = "in",
-    dpi = 600,
-    compression = "lzw",
-    bg = "white"
-  )
-}
-
-# Fig. 3a
-stopifnot(exists("p_fig3a"))
-
-save_tiff(
-  plot = p_fig3a,
-  filename = "Fig3a_abundant_abundance.tiff",
-  width = 4.5,
-  height = 4
-)
-
-# Fig. 3b
-stopifnot(exists("p_fig3b"))
-
-save_tiff(
-  plot = p_fig3b,
-  filename = "Fig3b_abundant_lifestyle.tiff",
-  width = 4.5,
-  height = 4
-)
-
-# Fig. 3c
-stopifnot(exists("venn_plot_abundant"))
-
-grDevices::tiff(
-  filename = file.path(
-    tiff_dir,
-    "Fig3c_abundant_venn.tiff"
-  ),
-  width = 2000 / 300,
-  height = 2000 / 300,
-  units = "in",
-  res = 600,
-  compression = "lzw",
-  bg = "white"
-)
-
-grid::grid.newpage()
-grid::grid.draw(venn_plot_abundant)
-grDevices::dev.off()
-
-# Fig. 3d
-stopifnot(exists("p_fig3d"))
-
-save_tiff(
-  plot = p_fig3d,
-  filename = "Fig3d_rare_abundance.tiff",
-  width = 4.5,
-  height = 4
-)
-
-# Fig. 3e
-stopifnot(exists("p_fig3e"))
-
-save_tiff(
-  plot = p_fig3e,
-  filename = "Fig3e_rare_lifestyle.tiff",
-  width = 4.5,
-  height = 4
-)
-
-# Fig. 3f
-stopifnot(exists("venn_plot_rare"))
-
-grDevices::tiff(
-  filename = file.path(
-    tiff_dir,
-    "Fig3f_rare_venn.tiff"
-  ),
-  width = 2000 / 300,
-  height = 2000 / 300,
-  units = "in",
-  res = 600,
-  compression = "lzw",
-  bg = "white"
-)
-
-grid::grid.newpage()
-grid::grid.draw(venn_plot_rare)
-grDevices::dev.off()
-
-message(
-  "Figure 3 TIFF panels exported to: ",
-  normalizePath(tiff_dir)
-)
 ```

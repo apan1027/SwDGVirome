@@ -1,6 +1,5 @@
 Package: SwDGVirome
-Title: Depth Stratifies Viral Survival Strategies in a Deep Granitic
-    Aquifer
+Title: Viral Community Analysis in Baltic Sea Water and a Deep Granitic Aquifer
 Version: 0.1.0
 Authors@R: c(
     person("Jinlong", "Ru", , "jinlong.ru@tum.com", role = c("cre", "aut"),
@@ -8,7 +7,7 @@ Authors@R: c(
     person("Cunli", "Pan", , "cunli.pan@tum.de", role = "aut")
   )
 Description: This repository contains the analytical workflow for
-    investigating depth-associated stratification of viral communities
+    describing viral communities across four unreplicated samples
     (0–450 m) in deep groundwater at the Äspö Hard Rock Laboratory
     (Sweden).
 License: GPL (>= 3)
@@ -20,6 +19,7 @@ Imports:
     base,
     circlize,
     ComplexHeatmap,
+    conflicted,
     cowplot,
     data.table,
     DBI,
@@ -34,13 +34,18 @@ Imports:
     here,
     IRanges,
     KEGGREST,
+    knitr,
     mia,
     openxlsx,
     patchwork,
     pheatmap,
+    png,
     progress,
+    projthis,
     purrr,
+    ragg,
     RColorBrewer,
+    readr,
     rmarkdown,
     RSQLite,
     S4Vectors,

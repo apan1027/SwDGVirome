@@ -11,8 +11,8 @@ Cunli Pan, Jinlong Ru
     vOTUs](#identify-abundant-votus)
   - [<span class="toc-section-number">0.3.2</span> Fig 3a: Abundance and
     Count](#fig-3a-abundance-and-count)
-  - [<span class="toc-section-number">0.3.3</span> Fig 3b:
-    Lysogenic/Lytic Ratio](#fig-3b-lysogeniclytic-ratio)
+  - [<span class="toc-section-number">0.3.3</span> Fig 3b: Predicted
+    temperate fraction](#fig-3b-predicted-temperate-fraction)
   - [<span class="toc-section-number">0.3.4</span> Fig 3c: Venn
     Diagram](#fig-3c-venn-diagram)
 - [<span class="toc-section-number">0.4</span> Figure 4d-f: Rare Viruses
@@ -21,16 +21,14 @@ Cunli Pan, Jinlong Ru
   vOTUs](#identify-rare-votus)
   - [<span class="toc-section-number">0.5.1</span> Fig 3d: Abundance and
     Count](#fig-3d-abundance-and-count)
-  - [<span class="toc-section-number">0.5.2</span> Fig 3e:
-    Lysogenic/Lytic Ratio](#fig-3e-lysogeniclytic-ratio)
+  - [<span class="toc-section-number">0.5.2</span> Fig 3e: Predicted
+    temperate fraction](#fig-3e-predicted-temperate-fraction)
   - [<span class="toc-section-number">0.5.3</span> Fig 3f: Venn
     Diagram](#fig-3f-venn-diagram)
 - [<span class="toc-section-number">0.6</span> Combine Fig3a–c and
   Fig3d–f](#combine-fig3ac-and-fig3df)
-- [<span class="toc-section-number">0.7</span> Export Figure 3 panels as
-  TIFF](#export-figure-3-panels-as-tiff)
 
-**Updated: 2026-09-07 17:29:01 CET.**
+**Updated: 2026-09-20 19:26:17 CET.**
 
 The purpose of this document is to partition the viral community into
 abundant and rare sub-communities, investigating their distinct
@@ -339,7 +337,7 @@ message("✅ Fig 3a completed\n")
 
     ✅ Fig 3a completed
 
-#### Fig 3b: Lysogenic/Lytic Ratio
+#### Fig 3b: Predicted temperate fraction
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -359,7 +357,6 @@ abundant_lifestyle <- abundant_vOTUs %>%
     )
   ) %>%
   filter(!is.na(lifestyle_clean))
-
 # Calculate abundance per lifestyle
 lifestyle_abundance <- abundant_lifestyle %>%
   group_by(sample_group, lifestyle_clean) %>%
@@ -368,36 +365,37 @@ lifestyle_abundance <- abundant_lifestyle %>%
     n_vOTUs = n(),
     .groups = "drop"
   )
-
-# Calculate ratio
-ratio_data <- lifestyle_abundance %>%
+# Calculate within-group temperate fraction
+fraction_data <- lifestyle_abundance %>%
   pivot_wider(
     names_from = lifestyle_clean,
     values_from = c(total_rel_abundance, n_vOTUs),
     values_fill = 0
   ) %>%
   mutate(
-    lysogenic_lytic_ratio = if_else(
-      total_rel_abundance_lytic > 0,
-      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+    classified_rel_abundance = total_rel_abundance_lysogenic + total_rel_abundance_lytic,
+    temperate_fraction = if_else(
+      classified_rel_abundance > 0,
+      total_rel_abundance_lysogenic / classified_rel_abundance,
       NA_real_
     ),
     sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
   ) %>%
-  filter(!is.na(lysogenic_lytic_ratio))
-
+  filter(!is.na(temperate_fraction))
 # Create plot
-p_fig3b <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio)) +
+p_fig3b <- ggplot(fraction_data, aes(x = sample_group, y = temperate_fraction)) +
   geom_bar(stat = "identity", fill = "#9970AB", color = "black", width = 0.6, linewidth = 0.5) +
   geom_text(
     aes(label = if_else(n_vOTUs_lysogenic > 0, sprintf("n=%d", n_vOTUs_lysogenic), "")),
     vjust = -0.5, size = 5, fontface = "italic", family = "Times"
   ) +
   scale_y_continuous(
-    limits = c(0, max(ratio_data$lysogenic_lytic_ratio) * 1.2),
+    limits = c(0, 0.25),
+    breaks = seq(0, 0.25, 0.05),
+    labels = scales::label_number(accuracy = 0.01),
     expand = expansion(mult = c(0, 0.05))
   ) +
-  labs(x = NULL, y = "Predicted ratio of lysogenic/lytic") +
+  labs(x = NULL, y = "Predicted temperate fraction") +
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
@@ -409,7 +407,6 @@ p_fig3b <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio)) 
     axis.title.y = element_text(size = 16, face = "plain", family = "Times"),
     plot.margin = margin(15, 20, 10, 10)
   )
-
 print(p_fig3b)
 ```
 
@@ -423,8 +420,7 @@ print(p_fig3b)
 ``` r
 # Save
 ggsave(path_target("Fig3b.png"), plot = p_fig3b, width = 4.5, height = 4, dpi = 300)
-write_csv(ratio_data, path_target("Fig3b_ratio_data.csv"))
-
+write_csv(fraction_data, path_target("Fig3b_fraction_data.csv"))
 message("✅ Fig 3b completed\n")
 ```
 
@@ -721,7 +717,7 @@ message("✅ Fig 3d completed\n")
 
     ✅ Fig 3d completed
 
-#### Fig 3e: Lysogenic/Lytic Ratio
+#### Fig 3e: Predicted temperate fraction
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -744,7 +740,6 @@ rare_lifestyle <- rare_vOTUs %>%
     )
   ) %>%
   dplyr::filter(!is.na(lifestyle_clean))
-
 cat("Rare vOTUs with lifestyle annotation:\n")
 ```
 
@@ -790,7 +785,6 @@ lifestyle_abundance_rare <- rare_lifestyle %>%
     n_vOTUs = n(),
     .groups = "drop"
   )
-
 cat("Lifestyle abundance summary:\n")
 ```
 
@@ -832,36 +826,36 @@ cat("\n")
 <summary>Code</summary>
 
 ``` r
-# Calculate ratio
-ratio_data_rare <- lifestyle_abundance_rare %>%
+# Calculate within-group temperate fraction
+fraction_data_rare <- lifestyle_abundance_rare %>%
   pivot_wider(
     names_from = lifestyle_clean,
     values_from = c(total_rel_abundance, n_vOTUs),
     values_fill = 0
   ) %>%
   mutate(
-    lysogenic_lytic_ratio = if_else(
-      total_rel_abundance_lytic > 0,
-      total_rel_abundance_lysogenic / total_rel_abundance_lytic,
+    classified_rel_abundance = total_rel_abundance_lysogenic + total_rel_abundance_lytic,
+    temperate_fraction = if_else(
+      classified_rel_abundance > 0,
+      total_rel_abundance_lysogenic / classified_rel_abundance,
       NA_real_
     ),
     sample_group = factor(sample_group, levels = c("BS", "SA", "IA", "DA"))
   ) %>%
-  dplyr::filter(!is.na(lysogenic_lytic_ratio))
-
-cat("Lysogenic/Lytic ratio (abundance-based):\n")
+  dplyr::filter(!is.na(temperate_fraction))
+cat("Predicted temperate fraction (within rare group):\n")
 ```
 
 </details>
 
-    Lysogenic/Lytic ratio (abundance-based):
+    Predicted temperate fraction (within rare group):
 
 <details class="code-fold">
 <summary>Code</summary>
 
 ``` r
-print(ratio_data_rare %>%
-  dplyr::select(sample_group, lysogenic_lytic_ratio,
+print(fraction_data_rare %>%
+  dplyr::select(sample_group, temperate_fraction,
          n_vOTUs_lysogenic, n_vOTUs_lytic,
          total_rel_abundance_lysogenic, total_rel_abundance_lytic))
 ```
@@ -869,12 +863,12 @@ print(ratio_data_rare %>%
 </details>
 
     # A tibble: 4 × 6
-      sample_group lysogenic_lytic_ratio n_vOTUs_lysogenic n_vOTUs_lytic
-      <fct>                        <dbl>             <int>         <int>
-    1 BS                         0.00497                 4           548
-    2 SA                         0.0247                 13           695
-    3 IA                         0.141                   5           113
-    4 DA                         0.0123                  2           163
+      sample_group temperate_fraction n_vOTUs_lysogenic n_vOTUs_lytic
+      <fct>                     <dbl>             <int>         <int>
+    1 BS                      0.00495                 4           548
+    2 SA                      0.0241                 13           695
+    3 IA                      0.123                   5           113
+    4 DA                      0.0121                  2           163
     # ℹ 2 more variables: total_rel_abundance_lysogenic <dbl>,
     #   total_rel_abundance_lytic <dbl>
 
@@ -892,17 +886,19 @@ cat("\n")
 
 ``` r
 # Create bar chart (same style as Fig 3b)
-p_fig3e <- ggplot(ratio_data_rare, aes(x = sample_group, y = lysogenic_lytic_ratio)) +
+p_fig3e <- ggplot(fraction_data_rare, aes(x = sample_group, y = temperate_fraction)) +
   geom_bar(stat = "identity", fill = "#9970AB", color = "black", width = 0.6, linewidth = 0.5) +
   geom_text(
     aes(label = if_else(n_vOTUs_lysogenic > 0, sprintf("n=%d", n_vOTUs_lysogenic), "")),
     vjust = -0.5, size = 5, fontface = "italic", family = "Times"
   ) +
   scale_y_continuous(
-    limits = c(0, max(ratio_data_rare$lysogenic_lytic_ratio) * 1.2),
+    limits = c(0, 0.25),
+    breaks = seq(0, 0.25, 0.05),
+    labels = scales::label_number(accuracy = 0.01),
     expand = expansion(mult = c(0, 0.05))
   ) +
-  labs(x = NULL, y = "Predicted ratio of lysogenic/lytic") +
+  labs(x = NULL, y = "Predicted temperate fraction") +
   theme_minimal(base_size = 22) +
   theme(
     text = element_text(family = "Times"),
@@ -915,7 +911,6 @@ p_fig3e <- ggplot(ratio_data_rare, aes(x = sample_group, y = lysogenic_lytic_rat
     axis.title.x = element_blank(),
     plot.margin = margin(15, 20, 10, 10)
   )
-
 print(p_fig3e)
 ```
 
@@ -929,8 +924,7 @@ print(p_fig3e)
 ``` r
 # Save
 ggsave(path_target("Fig3e.png"), plot = p_fig3e, width = 4.5, height = 4, dpi = 300)
-write_csv(ratio_data_rare, path_target("Fig3e_ratio_data.csv"))
-
+write_csv(fraction_data_rare, path_target("Fig3e_fraction_data.csv"))
 message("✅ Fig 3e completed\n")
 ```
 
@@ -1099,5 +1093,3 @@ message("✅ Fig3 d–f combined saved\n")
 </details>
 
     ✅ Fig3 d–f combined saved
-
-### Export Figure 3 panels as TIFF

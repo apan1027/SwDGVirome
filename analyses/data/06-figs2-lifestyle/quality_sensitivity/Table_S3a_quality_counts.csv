@@ -1,0 +1,8 @@
+"quality_group","n_vOTU","n_temperate","n_virulent","n_unassigned","temperate_count_fraction"
+"Complete",4,0,4,0,0
+"High-quality",12,2,10,0,0.166666666666667
+"Medium-quality",39,4,35,0,0.102564102564103
+"Low-quality",874,16,858,0,0.0183066361556064
+"Not-determined",33,1,32,0,0.0303030303030303
+"All primary",962,23,939,0,0.0239085239085239
+"Medium-quality or better",55,6,49,0,0.109090909090909

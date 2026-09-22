@@ -495,35 +495,80 @@ lifestyle_abundance <- df_lifestyle %>%
   group_by(sample_group, lifestyle) %>%
   summarise(total_abundance = sum(TPM), .groups = "drop")
 
-# Calculate ratio
-ratio_data <- lifestyle_abundance %>%
-  pivot_wider(names_from = lifestyle, values_from = total_abundance) %>%
-  mutate(lysogenic_lytic_ratio = lysogenic / lytic) %>%
-  select(sample_group, lysogenic, lytic, lysogenic_lytic_ratio)
+# Calculate fraction
+fraction_data <- lifestyle_abundance %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = total_abundance,
+    values_fill = 0
+  ) %>%
+  mutate(
+    classified_TPM = lysogenic + lytic,
+    temperate_fraction = if_else(
+      classified_TPM > 0,
+      lysogenic / classified_TPM,
+      NA_real_
+    ),
+    fraction_percent = 100 * temperate_fraction
+  ) %>%
+  select(
+    sample_group, lysogenic, lytic,
+    classified_TPM, temperate_fraction, fraction_percent
+  )
 
 # Create plot
-p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio,
-                                   color = sample_group)) +
+p_fig2d <- ggplot(
+  fraction_data,
+  aes(
+    x = sample_group,
+    y = temperate_fraction,
+    color = sample_group
+  )
+) +
   geom_point(size = 5, alpha = 0.8) +
-  geom_line(aes(group = 1), color = "gray50", size = 0.8, linetype = "solid") +
-  scale_y_continuous(
-    limits = c(0, max(ratio_data$lysogenic_lytic_ratio) * 1.2),
-    breaks = seq(0, 0.4, 0.1),
-    expand = expansion(mult = c(0, 0.05))
+  geom_line(
+    aes(group = 1),
+    color = "gray50",
+    linewidth = 0.8,
+    linetype = "solid"
+  ) +
+scale_y_continuous(
+  limits = c(0, 0.25),
+  breaks = seq(0, 0.25, 0.05),
+  labels = scales::label_number(accuracy = 0.01),
+  expand = expansion(mult = c(0, 0.05))
   ) +
   scale_color_manual(values = sample_colors) +
-  labs(
-    x = NULL,
-    y = "The ratio of lysogenic/lytic cycle"
-  ) +
+labs(
+  x = NULL,
+  y = "Predicted temperate fraction"
+) +
   theme_fig2() +
   theme(legend.position = "none")
 
 print(p_fig2d)
 
+# Save PNG
+ggsave(
+  path_target("Fig2d.png"),
+  plot = p_fig2d,
+  width = 5, height = 6, dpi = 300
+)
+
+# Save source data
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
+
+message("✅ Figure 2d completed")
+
 # Save
 ggsave(path_target("Fig2d.png"), plot = p_fig2d, width = 5, height = 6, dpi = 300)
-write_csv(ratio_data, path_target("Fig2d_ratio_data.csv"))
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
 
 message("✅ Figure 2d completed")
 ```
@@ -977,93 +1022,4 @@ table_s1 <- phylum_rel_abundance %>%
 write_csv(table_s1, path_target("Fig2g_Table_S1_host_phylum_abundance.csv"))
 
 message("✅ Figure 2g completed")
-```
-
-
-### Export final panels as TIFF for Inkscape
-
-```{r}
-#| label: export-fig2-tiff
-#| include: false
-
-tiff_dir <- path_target("tiff_panels")
-dir.create(tiff_dir, recursive = TRUE, showWarnings = FALSE)
-
-save_tiff <- function(plot, filename, width, height) {
-  ggsave(
-    filename = file.path(tiff_dir, filename),
-    plot = plot,
-    device = "tiff",
-    width = width,
-    height = height,
-    units = "in",
-    dpi = 600,
-    compression = "lzw",
-    bg = "white"
-  )
-}
-
-# Fig. 2a
-save_tiff(
-  p_fig2a,
-  "Fig2a_taxonomy_class.tiff",
-  width = 7,
-  height = 6
-)
-
-# Fig. 2b
-save_tiff(
-  p_fig2b,
-  "Fig2b_rarefaction.tiff",
-  width = 8,
-  height = 10
-)
-
-# Fig. 2c — VennDiagram/grid object
-grDevices::tiff(
-  filename = file.path(tiff_dir, "Fig2c_venn.tiff"),
-  width = 10,
-  height = 10,
-  units = "in",
-  res = 600,
-  compression = "lzw",
-  bg = "white"
-)
-grid::grid.newpage()
-grid::grid.draw(venn.plot)
-grDevices::dev.off()
-
-# Fig. 2d
-save_tiff(
-  p_fig2d,
-  "Fig2d_replication_strategy.tiff",
-  width = 5,
-  height = 6
-)
-
-# Fig. 2e
-save_tiff(
-  p_fig2e,
-  "Fig2e_shannon.tiff",
-  width = 6,
-  height = 6
-)
-
-# Fig. 2f
-save_tiff(
-  p_fig2f,
-  "Fig2f_imgvr_source_and_genus_summary.tiff",
-  width = 7.8,
-  height = 5
-)
-
-# Fig. 2g
-save_tiff(
-  p_fig2g,
-  "Fig2g_host_phylum.tiff",
-  width = 6.7,
-  height = 9
-)
-
-message("TIFF panels written to: ", tiff_dir)
 ```
