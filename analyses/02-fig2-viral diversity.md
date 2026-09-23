@@ -21,7 +21,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.8</span> Figure 2g - Host Phylum
     Prediction](#figure-2g---host-phylum-prediction)
 
-**Updated: 2026-09-20 18:49:28 CET.**
+**Updated: 2026-09-23 22:33:07 CET.**
 
 The purpose of this document is to analyze and visualize viral alpha and
 beta diversity across different sample groups (depths), utilizing
@@ -211,7 +211,7 @@ p_fig2a <- ggplot(plot_data, aes(x = sample_group, y = rel_abund, fill = family_
     breaks = seq(0, 1, 0.2),
     expand = expansion(mult = c(0, 0))
   ) +
-  labs(x = NULL, y = "Relative sequence abundance", fill = "Virus Family") +
+  labs(x = NULL, y = "Relative sequence abundance", fill = "Viral taxa") +
   theme_fig2() +
   theme(
     axis.title.y = element_text(size = 25, face = "plain"),
@@ -867,8 +867,8 @@ p_left <- ggplot(plot_eco, aes(x = sample_group, y = relative_abundance, fill = 
   ) +
   labs(
     x = NULL,
-    y = "Relative abundance related to habitats",
-    title = "environmentally annotated"
+    y = "Relative abundance",
+    title = "Reference ecosystem annotation"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -1162,7 +1162,7 @@ p_fig2g <- ggplot(plot_data, aes(x = rel_abundance, y = Phylum)) +
     limits = c(-0.02, 0.45)
   ) +
   labs(
-    x = "Relative abundance of predicted bacterial hosts",
+    x = "Viral TPM share by predicted host phylum",
     y = NULL
   ) +
   theme_fig2() +
