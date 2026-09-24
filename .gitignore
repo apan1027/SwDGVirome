@@ -80,6 +80,8 @@ Thumbs.db
 /analyses/data/06-figs2-lifestyle/quality_sensitivity/*
 !/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_comparison.csv
 !/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_source_vOTU_TPM.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_taxonomic_coverage.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_vOTU_quality_taxonomy.csv
 !/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3a_quality_counts.csv
 !/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3b_quality_sample_fractions.csv
 !/analyses/data/10-figs7-folA-candidate/
