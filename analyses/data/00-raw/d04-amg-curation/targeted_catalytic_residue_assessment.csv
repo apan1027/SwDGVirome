@@ -1,0 +1,154 @@
+gene_set,reference_accession,reference_protein,reference_organism,feature_type,reference_position,reference_residue,ligand_or_role,evidence_codes,alignment_column,query_position,query_residue,conserved,access_utc
+cysH,P17854,Phosphoadenosine 5'-phosphosulfate reductase,Escherichia coli (strain K12),Active site,239,C,Nucleophile; cysteine thiosulfonate intermediate,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000305:PubMed:17352498,898,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Active site,256,C,Nucleophile; cysteine thiosulfonate intermediate,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000305:PubMed:16289027;ECO:0000305:PubMed:17010373,898,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,60,S,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,477,6,S,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,85,L,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,531,35,M,False,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,139,C,[4Fe-4S] cluster,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000269:PubMed:15491155;ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,638,111,C,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,140,C,[4Fe-4S] cluster,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,639,112,T,False,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,144,K,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,643,116,K,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,161,G,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,674,138,G,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,228,C,[4Fe-4S] cluster,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000269:PubMed:15491155;ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,796,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,231,C,[4Fe-4S] cluster,ECO:0000255:HAMAP-Rule:MF_00063;ECO:0000269:PubMed:15491155;ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,799,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,242,R,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,876,222,R,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,243,E,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,877,223,D,False,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,244,G,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,878,224,G,True,2026-09-04T21:59:11+00:00
+cysH,O05927,Adenosine 5'-phosphosulfate reductase,Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1),Binding site,245,R,adenosine 5'-phosphosulfate,ECO:0000269:PubMed:17010373;ECO:0007744:PDB:2GOY,880,226,R,True,2026-09-04T21:59:11+00:00
+cysH,Q8CWK6,Phosphoadenosine 5'-phosphosulfate reductase,Vibrio vulnificus (strain CMCP6),Active site,244,C,Nucleophile; cysteine thiosulfonate intermediate,ECO:0000255:HAMAP-Rule:MF_00063,898,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,P92979,"5'-adenylylsulfate reductase 1, chloroplastic",Arabidopsis thaliana,Active site,385,C,Nucleophile,ECO:0000250::,1142,,-,gap in query,2026-09-04T21:59:11+00:00
+cysH,P92979,"5'-adenylylsulfate reductase 1, chloroplastic",Arabidopsis thaliana,Active site,388,C,Nucleophile,ECO:0000250::,1145,,-,gap in query,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,5,I,substrate,ECO:0000305:PubMed:9012674,22,4,I,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,7,A,NADP(+),ECO:0000269:PubMed:19374017,24,6,A,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,13,V,NADP(+),ECO:0000269:PubMed:19374017,38,12,I,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,14,I,NADP(+),ECO:0000269:PubMed:19374017,39,13,I,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,15,G,NADP(+),ECO:0000269:PubMed:19374017,40,14,G,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,16,M,NADP(+),ECO:0000269:PubMed:19374017,41,15,K,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,17,E,NADP(+),ECO:0000269:PubMed:19374017,42,16,G,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,18,N,NADP(+),ECO:0000269:PubMed:19374017,43,17,E,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,19,A,NADP(+),ECO:0000269:PubMed:19374017,44,18,S,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,27,D,substrate,ECO:0000305:PubMed:9012674,55,26,D,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,45,H,NADP(+),ECO:0000269:PubMed:19374017,109,44,K,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,46,T,NADP(+),ECO:0000269:PubMed:19374017,110,45,T,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,52,R,substrate,ECO:0000305:PubMed:9012674,120,,-,gap in query,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,57,R,substrate,ECO:0000305:PubMed:9012674,125,55,R,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,63,S,NADP(+),ECO:0000269:PubMed:19374017,131,61,T,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,64,S,NADP(+),ECO:0000269:PubMed:19374017,132,62,S,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,76,K,NADP(+),ECO:0000269:PubMed:19374017,161,88,C,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,95,G,NADP(+),ECO:0000269:PubMed:19374017,199,112,G,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,96,G,NADP(+),ECO:0000269:PubMed:19374017,200,113,G,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,97,G,NADP(+),ECO:0000269:PubMed:19374017,201,114,A,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,98,R,NADP(+),ECO:0000269:PubMed:19374017,202,115,R,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,99,V,NADP(+),ECO:0000269:PubMed:19374017,203,116,T,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,100,Y,NADP(+),ECO:0000269:PubMed:19374017,204,117,Y,True,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,101,E,NADP(+),ECO:0000269:PubMed:19374017,205,118,K,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,102,Q,NADP(+),ECO:0000269:PubMed:19374017,206,119,T,False,2026-09-04T21:59:11+00:00
+folA,P0ABQ4,Dihydrofolate reductase,Escherichia coli (strain K12),Binding site,113,T,substrate,ECO:0000305:PubMed:9012674,238,130,T,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,10,A,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,24,6,A,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,16,G,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,38,12,I,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,17,I,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,39,13,I,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,18,G,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,40,14,G,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,19,K,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,41,15,K,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,20,N,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,42,16,G,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,21,G,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,43,17,E,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,22,D,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,44,18,S,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,31,E,substrate,ECO:0000305:PubMed:2248959,55,26,D,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,32,F,substrate,ECO:0000305:PubMed:2248959,56,27,L,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,33,R,substrate,ECO:0000305:PubMed:2248959,57,28,K,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,34,Y,substrate,ECO:0000305:PubMed:2248959,58,29,W,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,35,F,substrate,ECO:0000305:PubMed:2248959,59,30,F,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,36,Q,substrate,ECO:0000305:PubMed:2248959,60,31,K,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,55,K,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,108,43,N,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,56,K,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,109,44,K,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,57,T,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,110,45,T,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,65,N,substrate,ECO:0000305:PubMed:2248959,119,,-,gap in query,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,71,R,substrate,ECO:0000305:PubMed:2248959,125,55,R,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,77,S,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,131,61,T,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,78,R,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,132,62,S,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,79,E,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,133,63,D,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,117,G,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,199,112,G,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,118,G,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,200,113,G,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,119,S,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,201,114,A,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,120,S,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,202,115,R,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,121,V,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,203,116,T,False,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,122,Y,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,204,117,Y,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,123,K,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,205,118,K,True,2026-09-04T21:59:11+00:00
+folA,P00374,Dihydrofolate reductase,Homo sapiens,Binding site,124,E,NADP(+),ECO:0000269:PubMed:15039552;ECO:0000269:PubMed:16222560;ECO:0000269:PubMed:19478082,206,119,T,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,7,R,NADP(+),,24,6,A,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,22,F,NADP(+),,39,13,I,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,23,G,NADP(+),,40,14,G,True,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,24,L,NADP(+),,41,15,K,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,25,G,NADP(+),,42,16,G,True,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,26,D,NADP(+),,43,17,E,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,27,G,NADP(+),,44,18,S,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,52,G,NADP(+),,107,42,G,True,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,53,A,NADP(+),,108,43,N,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,54,K,NADP(+),,109,44,K,True,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,55,T,NADP(+),,110,45,T,True,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,73,D,NADP(+),,132,62,S,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,74,L,NADP(+),,133,63,D,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,75,A,NADP(+),,134,64,P,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,76,R,NADP(+),,135,65,F,False,2026-09-04T21:59:11+00:00
+folA,P04382,Dihydrofolate reductase,Enterobacteria phage T4,Binding site,77,D,NADP(+),,136,66,T,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,6,L,substrate,ECO:0000305:PubMed:19280600,22,4,I,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,7,V,substrate,ECO:0000305:PubMed:19280600,23,5,V,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,7,V,NADP(+),ECO:0000269:PubMed:19280600,23,5,V,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,8,A,NADP(+),ECO:0000269:PubMed:19280600,24,6,A,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,15,I,NADP(+),ECO:0000269:PubMed:19280600,39,13,I,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,16,G,NADP(+),ECO:0000269:PubMed:19280600,40,14,G,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,17,F,NADP(+),ECO:0000269:PubMed:19280600,41,15,K,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,18,E,NADP(+),ECO:0000269:PubMed:19280600,42,16,G,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,19,N,NADP(+),ECO:0000269:PubMed:19280600,43,17,E,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,20,Q,NADP(+),ECO:0000269:PubMed:19280600,44,18,S,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,28,D,substrate,ECO:0000305:PubMed:19280600,55,26,D,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,44,G,NADP(+),ECO:0000269:PubMed:19280600,107,42,G,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,45,R,NADP(+),ECO:0000269:PubMed:19280600,108,43,N,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,46,K,NADP(+),ECO:0000269:PubMed:19280600,109,44,K,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,47,T,NADP(+),ECO:0000269:PubMed:19280600,110,45,T,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,50,S,substrate,ECO:0000305:PubMed:19280600,113,48,H,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,58,R,substrate,ECO:0000305:PubMed:19280600,125,55,R,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,63,L,NADP(+),ECO:0000269:PubMed:19280600,130,60,I,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,64,T,NADP(+),ECO:0000269:PubMed:19280600,131,61,T,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,65,S,NADP(+),ECO:0000269:PubMed:19280600,132,62,S,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,66,D,NADP(+),ECO:0000269:PubMed:19280600,133,63,D,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,93,F,NADP(+),ECO:0000269:PubMed:19280600,198,111,I,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,94,G,NADP(+),ECO:0000269:PubMed:19280600,199,112,G,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,95,G,NADP(+),ECO:0000269:PubMed:19280600,200,113,G,True,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,96,Q,NADP(+),ECO:0000269:PubMed:19280600,201,114,A,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,97,T,NADP(+),ECO:0000269:PubMed:19280600,202,115,R,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,98,L,NADP(+),ECO:0000269:PubMed:19280600,203,116,T,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,93,F,substrate,ECO:0000305:PubMed:19280600,198,111,I,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,101,E,NADP(+),ECO:0000269:PubMed:19280600,206,119,T,False,2026-09-04T21:59:11+00:00
+folA,P0A017,Dihydrofolate reductase,Staphylococcus aureus,Binding site,122,T,NADP(+),ECO:0000269:PubMed:19280600,262,140,V,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,5,L,substrate,ECO:0000305:PubMed:6815179,22,4,I,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,6,W,substrate,ECO:0000305:PubMed:6815179,23,5,V,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,7,A,substrate,ECO:0000305:PubMed:6815179,24,6,A,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,6,W,NADP(+),ECO:0000269:PubMed:6815179,23,5,V,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,7,A,NADP(+),ECO:0000269:PubMed:6815179,24,6,A,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,14,I,NADP(+),ECO:0000269:PubMed:6815179,39,13,I,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,15,G,NADP(+),ECO:0000269:PubMed:6815179,40,14,G,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,16,K,NADP(+),ECO:0000269:PubMed:6815179,41,15,K,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,17,D,NADP(+),ECO:0000269:PubMed:6815179,42,16,G,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,18,G,NADP(+),ECO:0000269:PubMed:6815179,43,17,E,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,19,H,NADP(+),ECO:0000269:PubMed:6815179,44,18,S,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,27,D,methotrexate,ECO:0000269:PubMed:6815179,55,26,D,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,27,D,substrate,ECO:0000305:PubMed:6815179,55,26,D,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,32,R,methotrexate,ECO:0000269:PubMed:6815179,60,31,K,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,32,R,substrate,ECO:0000305:PubMed:6815179,60,31,K,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,43,G,NADP(+),ECO:0000269:PubMed:6815179,107,42,G,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,44,R,NADP(+),ECO:0000269:PubMed:6815179,108,43,N,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,45,R,NADP(+),ECO:0000269:PubMed:6815179,109,44,K,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,46,T,NADP(+),ECO:0000269:PubMed:6815179,110,45,T,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,58,R,methotrexate,ECO:0000269:PubMed:6815179,125,55,R,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,58,R,substrate,ECO:0000305:PubMed:6815179,125,55,R,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,63,L,NADP(+),ECO:0000269:PubMed:6815179,130,60,I,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,64,T,NADP(+),ECO:0000269:PubMed:6815179,131,61,T,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,65,H,NADP(+),ECO:0000269:PubMed:6815179,132,62,S,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,66,Q,NADP(+),ECO:0000269:PubMed:6815179,133,63,D,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,80,V,NADP(+),ECO:0000269:PubMed:6815179,163,90,P,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,98,A,NADP(+),ECO:0000269:PubMed:6815179,198,111,I,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,99,G,NADP(+),ECO:0000269:PubMed:6815179,199,112,G,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,100,G,NADP(+),ECO:0000269:PubMed:6815179,200,113,G,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,101,A,NADP(+),ECO:0000269:PubMed:6815179,201,114,A,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,102,Q,NADP(+),ECO:0000269:PubMed:6815179,202,115,R,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,103,I,NADP(+),ECO:0000269:PubMed:6815179,203,116,T,False,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Binding site,117,T,substrate,ECO:0000305:PubMed:6815179,238,130,T,True,2026-09-04T21:59:11+00:00
+folA,P00381,Dihydrofolate reductase,Lacticaseibacillus casei,Site,22,W,May be important for enzyme function,,47,21,W,True,2026-09-04T21:59:11+00:00

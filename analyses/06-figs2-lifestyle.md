@@ -1,8 +1,9 @@
+<!-- Table-export code synchronized with the QMD. Full HTML render and regenerated figure/table outputs verified on 2026-09-24; this tracked Markdown report retains its existing layout. -->
 06-figs2-lifestyle
 ================
 today
 
-**Updated: 2026-09-24 14:14:33 CET.**
+**Last full render verified: 2026-09-24 (Europe/Berlin).**
 
 ``` r
 suppressPackageStartupMessages({
@@ -565,7 +566,7 @@ local({
     ## |IA     |                     0.0386|                          0.1954|                      18|                                 3|                               0.1041|
     ## |DA     |                     0.1892|                          0.5324|                      17|                                 1|                               0.3058|
 
-### Task 8: Export Table S3 with taxonomic coverage
+### Task 8: Export Table S3 with taxonomic coverage and candidate-AMG evidence
 
 ``` r
 # Add after Task 7 in 06-figs2-lifestyle.qmd; keep Task 7 unchanged.
@@ -709,7 +710,7 @@ local({
     "Abundance groups", "Relative TPM", "Sample-specific membership", "Fractions",
     "Unclassified", "Group column filtering", "Missing values"),
     Description = c(
-    "Table S3. Quality assessment, replication-strategy sensitivity and taxonomic assignment coverage.",
+    "Table S3. Quality assessment, replication-strategy sensitivity, taxonomic assignment coverage and candidate-AMG evidence.",
     "analyses/data/01-tse-construction/tse_primary_962.rds; representative-contig annotations and TPM assay.",
     unname(tools::md5sum(input_file)),
     "Primary catalogue: 962 vOTUs with representative contigs >=5 kb. The 2,488-vOTU discovery set is not used in this table.",
@@ -779,11 +780,14 @@ local({
   openxlsx::addStyle(wb, "Notes", openxlsx::createStyle(wrapText = TRUE, valign = "top"),
     rows = seq_len(nrow(notes)) + 1, cols = 1:2, gridExpand = TRUE)
   openxlsx::setRowHeights(wb, "Notes", rows = seq_len(nrow(notes)) + 1, heights = 64)
-  # No drawings are used; remove openxlsx's unused links to missing drawings.
-  for (i in seq_along(wb$worksheets)) {
-    wb$worksheets[[i]]$drawing <- character(0)
-    wb$worksheets_rels[[i]] <- character(0)
-  }
+  # Rebuild from the current TSE and archived evidence rather than silently
+  # appending stale CSVs. No network queries or heatmap rerender are required.
+  source(here::here("R", "amg_curation.R"))
+  amg <- build_amg_evidence(here::here(),
+    path_source("04-fig4-heatmap", "amg_curation"))
+  add_amg_sheets(wb, amg)
+  # Correct worksheet dimensions and remove unused openxlsx drawing links.
+  prepare_s3_data_export(wb)
   xlsx_file <- file.path(table_dir, "Table_S3_quality_taxonomy.xlsx")
   openxlsx::saveWorkbook(wb, xlsx_file, overwrite = TRUE)
   # Check saved values, including the full 962-row filtered-detail sheet.
@@ -800,7 +804,7 @@ local({
   }
   print(knitr::kable(coverage, digits = 4,
     caption = "Table S3. Taxonomic assignment coverage (count fractions)."))
-  message("Verified: 962 vOTUs; 36 coverage rows; five Excel sheets.")
+  message("Verified: 962 vOTUs; 36 coverage rows; 167 candidate ORFs; seven Excel sheets.")
   message("Table S3 Excel: ", normalizePath(xlsx_file))
 })
 ```

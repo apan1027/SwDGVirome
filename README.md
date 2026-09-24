@@ -27,6 +27,7 @@ pak::pak()
 The repository tracks selected required inputs; most generated outputs and local archives are ignored.
 
 - `analyses/data/00-raw/d00-resource/p0057v2.sqlite` and `imgvr_source.tsv`: input database and IMG/VR metadata for step 01.
+- `analyses/data/00-raw/d04-amg-curation/`: archived candidate-AMG evidence and explicit assessment records used by steps 04/06; see its README for verification limits.
 - `analyses/data/00-raw/d11-figs8-public-reference/`: the two archived CSV inputs for Figure S8 and Table S2.
 - `analyses/data/16-amg-targeted-validation/`: three archived inputs used by step 10. This historical directory is still required; there is no additional step 16 to run.
 
@@ -53,6 +54,8 @@ See [analyses/README.md](analyses/README.md) for the complete 01–11 notebook l
 Generated files are placed in `analyses/data/<step-name>/`. Selected Markdown reports, preview images and source tables are tracked for inspection. Figure 2b uses random rarefaction without a fixed seed, so rerun curves may vary.
 
 Step 10 redraws genomic context and presents archived structure-comparison evidence; it does not rerun structure prediction or alignment. Step 11 redraws published coverage records and exports an archived reference-match table; it does not rerun mapping or sequence alignment. Step 06 generates the Table S3 quality and taxonomic-coverage CSV files and exports `Table_S3_quality_taxonomy.xlsx`, including the 962-row vOTU detail table. The selected CSVs are tracked; the generated Excel workbook remains a local output.
+
+Table S3 also includes two candidate-AMG evidence sheets for 167 ORFs on 124 primary-catalogue vOTUs. All have annotation/context screening; 20 have targeted computational assessments. These records do not establish enzymatic activity or an auxiliary metabolic role. The shared helper `analyses/R/amg_curation.R` exports the evidence without network access. `analyses/R/export_table_s3_amg.R` reruns the Table S3 chunks from step 06, refreshes the four data sheets and replaces the AMG sheets while preserving the author's formatting, footnotes and Notes.
 
 ## Contact
 

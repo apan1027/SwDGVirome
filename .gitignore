@@ -70,6 +70,10 @@ Thumbs.db
 /analyses/data/00-raw/d00-resource/*
 !/analyses/data/00-raw/d00-resource/imgvr_source.tsv
 !/analyses/data/00-raw/d00-resource/p0057v2.sqlite
+!/analyses/data/00-raw/d04-amg-curation/
+/analyses/data/00-raw/d04-amg-curation/*
+!/analyses/data/00-raw/d04-amg-curation/*.csv
+!/analyses/data/00-raw/d04-amg-curation/README.md
 !/analyses/data/00-raw/d11-figs8-public-reference/
 /analyses/data/00-raw/d11-figs8-public-reference/*
 !/analyses/data/00-raw/d11-figs8-public-reference/public_reference_alignments_primary962.csv

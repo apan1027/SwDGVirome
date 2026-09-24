@@ -1,0 +1,6 @@
+database,release,detail,source,note,access_utc
+Pfam-A,38.2,30134 families; based on UniProtKB 2025_03; release date 2026-01,ftp.ebi.ac.uk/pub/databases/Pfam/current_release,downloaded and hmmpress'd for this audit,2026-09-08T10:41:35+00:00
+KEGG KO (via VIBRANT/DRAM-v),as embedded in p0057v2.sqlite,"K00973, K00525, K02078, K17398",project annotation database,release not recorded in the database; not recoverable,2026-09-08T10:41:35+00:00
+eggNOG,as embedded in p0057v2.sqlite,"anno_prot_eggnog, 9709 rows",project annotation database,release not recorded in the database; not recoverable,2026-09-08T10:41:35+00:00
+PHROG,as embedded in p0057v2.sqlite,"anno_prot_phrog, 4236 rows",project annotation database,release not recorded in the database; not recoverable,2026-09-08T10:41:35+00:00
+CheckV / geNomad / VirSorter2,as embedded in p0057v2.sqlite,"contig_annotation, 2493 rows",project annotation database,versions not recorded in the database; not recoverable,2026-09-08T10:41:35+00:00

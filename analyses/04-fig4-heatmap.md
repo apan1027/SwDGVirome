@@ -1,3 +1,4 @@
+<!-- Candidate-AMG evidence section added and independently executed on 2026-09-24. Existing KEGG and figure outputs retain their previous render. -->
 # 04-fig4-heatmap
 Cunli Pan, Jinlong Ru
 2025-12-20
@@ -22,9 +23,9 @@ Cunli Pan, Jinlong Ru
 
 **Updated: 2026-09-07 17:29:30 CET.**
 
-The purpose of this document is to construct and visualize a heatmap of
-viral functional potential based on KEGG orthology (KO) and pathway
-annotations to infer metabolic capabilities of the viral community.
+This document visualizes automated candidate-AMG annotation patterns using
+carrier-vOTU TPM and records the available ORF-level evidence. Pathway
+membership alone does not establish an auxiliary metabolic role.
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -164,6 +165,21 @@ message("Unique T1 candidate ORFs: ", n_unique_candidates)
 </details>
 
     Unique T1 candidate ORFs: 167
+
+### Candidate-AMG evidence for Table S3
+
+This independent export uses the primary TSE and archived measurements. It does
+not change the heatmap calculations or treat all candidates as validated AMGs.
+The same helper is called by 06 when assembling Table S3, so 06 can also run
+without rerunning the KEGG queries or figures here.
+
+``` r
+source(here::here("R", "amg_curation.R"))
+amg_evidence <- build_amg_evidence(here::here(), path_target("amg_curation"))
+```
+
+
+Verified output: 167 candidate ORFs on 124 vOTUs; 2,456 evidence records; 20 targeted computational assessments. Eleven ORFs have at least one incompatible PHROG query-length record.
 
 ### Task 2: Annotate KEGG
 

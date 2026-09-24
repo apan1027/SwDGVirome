@@ -1,0 +1,5 @@
+reference,reference_description,reference_catalytic_position,reference_residue,alignment_column,reference_window,query_window,query_residue,query_position,conserved
+P17854,"Escherichia coli CysH, PAPS reductase",239,C,414,-------CGLHEG--,FNEVI--TGSHVRDG,T,217,False
+O05927,Pseudomonas aeruginosa APS reductase,256,C,414,-------CGLHAGNL,FNEVI--TGSHVRDG,T,217,False
+Q8CWK6,"Vibrio vulnificus CysH, PAPS reductase",244,C,414,-------CGLHEEDN,FNEVI--TGSHVRDG,T,217,False
+P92979,"Arabidopsis thaliana APR1, APS reductase",385,C,477,VVLYAPWCPFCQAME,QALYQDMVRAKRF--,V,260,False
