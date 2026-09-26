@@ -21,7 +21,7 @@ Cunli Pan, Jinlong Ru
   - [<span class="toc-section-number">1.8</span> Figure 2g - Host Phylum
     Prediction](#figure-2g---host-phylum-prediction)
 
-**Updated: 2026-01-29 15:41:00 CET.**
+**Updated: 2026-09-23 22:33:07 CET.**
 
 The purpose of this document is to analyze and visualize viral alpha and
 beta diversity across different sample groups (depths), utilizing
@@ -55,7 +55,18 @@ suppressPackageStartupMessages({
   # Diversity analysis
   library(vegan)
 })
+```
 
+</details>
+
+    Warning: package 'S4Vectors' was built under R version 4.5.3
+
+    Warning: package 'Biobase' was built under R version 4.5.3
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Load package utility functions
 devtools::load_all(here::here())
 ```
@@ -73,17 +84,27 @@ devtools::load_all(here::here())
 ##| label: load-tse
 #| message: true
 
-# Load TSE
-tse_path <- here("data", "01-tse-construction", "tse.rds")
+# Load the already filtered >=5 kb primary catalogue produced by analysis 01.
+# All original Figure 2 calculations and layouts below are otherwise retained.
+tse_path <- here(
+  "data",
+  "01-tse-construction",
+  "tse_primary_962.rds"
+)
 stopifnot(file.exists(tse_path))
 tse <- readRDS(tse_path)
+
+stopifnot(
+  nrow(tse) == 962,
+  ncol(tse) == 4
+)
 
 message("✅ TSE loaded: ", nrow(tse), " vOTUs × ", ncol(tse), " samples")
 ```
 
 </details>
 
-    ✅ TSE loaded: 2488 vOTUs × 4 samples
+    ✅ TSE loaded: 962 vOTUs × 4 samples
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -190,7 +211,7 @@ p_fig2a <- ggplot(plot_data, aes(x = sample_group, y = rel_abund, fill = family_
     breaks = seq(0, 1, 0.2),
     expand = expansion(mult = c(0, 0))
   ) +
-  labs(x = NULL, y = "Relative sequence abundance", fill = "Virus Family") +
+  labs(x = NULL, y = "Relative sequence abundance", fill = "Viral taxa") +
   theme_fig2() +
   theme(
     axis.title.y = element_text(size = 25, face = "plain"),
@@ -466,8 +487,8 @@ dev.off()
 
 </details>
 
-    quartz_off_screen 
-                    2 
+    quartz_off_screen
+                    2
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -490,7 +511,7 @@ message("✅ Figure 2c completed (BS:", length(BS_viruses),
 
 </details>
 
-    ✅ Figure 2c completed (BS:2257 SA:1742 IA:314 DA:442 All 4:50)
+    ✅ Figure 2c completed (BS:864 SA:786 IA:156 DA:211 All 4:27)
 
 ### Figure 2d - Lysogenic/Lytic Ratio
 
@@ -543,27 +564,54 @@ lifestyle_abundance <- df_lifestyle %>%
   group_by(sample_group, lifestyle) %>%
   summarise(total_abundance = sum(TPM), .groups = "drop")
 
-# Calculate ratio
-ratio_data <- lifestyle_abundance %>%
-  pivot_wider(names_from = lifestyle, values_from = total_abundance) %>%
-  mutate(lysogenic_lytic_ratio = lysogenic / lytic) %>%
-  select(sample_group, lysogenic, lytic, lysogenic_lytic_ratio)
+# Calculate fraction
+fraction_data <- lifestyle_abundance %>%
+  pivot_wider(
+    names_from = lifestyle,
+    values_from = total_abundance,
+    values_fill = 0
+  ) %>%
+  mutate(
+    classified_TPM = lysogenic + lytic,
+    temperate_fraction = if_else(
+      classified_TPM > 0,
+      lysogenic / classified_TPM,
+      NA_real_
+    ),
+    fraction_percent = 100 * temperate_fraction
+  ) %>%
+  select(
+    sample_group, lysogenic, lytic,
+    classified_TPM, temperate_fraction, fraction_percent
+  )
 
 # Create plot
-p_fig2d <- ggplot(ratio_data, aes(x = sample_group, y = lysogenic_lytic_ratio,
-                                   color = sample_group)) +
+p_fig2d <- ggplot(
+  fraction_data,
+  aes(
+    x = sample_group,
+    y = temperate_fraction,
+    color = sample_group
+  )
+) +
   geom_point(size = 5, alpha = 0.8) +
-  geom_line(aes(group = 1), color = "gray50", size = 0.8, linetype = "solid") +
-  scale_y_continuous(
-    limits = c(0, max(ratio_data$lysogenic_lytic_ratio) * 1.2),
-    breaks = seq(0, 0.4, 0.1),
-    expand = expansion(mult = c(0, 0.05))
+  geom_line(
+    aes(group = 1),
+    color = "gray50",
+    linewidth = 0.8,
+    linetype = "solid"
+  ) +
+scale_y_continuous(
+  limits = c(0, 0.25),
+  breaks = seq(0, 0.25, 0.05),
+  labels = scales::label_number(accuracy = 0.01),
+  expand = expansion(mult = c(0, 0.05))
   ) +
   scale_color_manual(values = sample_colors) +
-  labs(
-    x = NULL,
-    y = "The ratio of lysogenic/lytic cycle"
-  ) +
+labs(
+  x = NULL,
+  y = "Predicted temperate fraction"
+) +
   theme_fig2() +
   theme(legend.position = "none")
 
@@ -578,9 +626,36 @@ print(p_fig2d)
 <summary>Code</summary>
 
 ``` r
+# Save PNG
+ggsave(
+  path_target("Fig2d.png"),
+  plot = p_fig2d,
+  width = 5, height = 6, dpi = 300
+)
+
+# Save source data
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
+
+message("✅ Figure 2d completed")
+```
+
+</details>
+
+    ✅ Figure 2d completed
+
+<details class="code-fold">
+<summary>Code</summary>
+
+``` r
 # Save
 ggsave(path_target("Fig2d.png"), plot = p_fig2d, width = 5, height = 6, dpi = 300)
-write_csv(ratio_data, path_target("Fig2d_ratio_data.csv"))
+write_csv(
+  fraction_data,
+  path_target("Fig2d_fraction_data.csv")
+)
 
 message("✅ Figure 2d completed")
 ```
@@ -792,8 +867,8 @@ p_left <- ggplot(plot_eco, aes(x = sample_group, y = relative_abundance, fill = 
   ) +
   labs(
     x = NULL,
-    y = "Relative abundance related to habitats",
-    title = "environmentally annotated"
+    y = "Relative abundance",
+    title = "Reference ecosystem annotation"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -860,9 +935,9 @@ p_right <- ggplot(novel_ratio, aes(x = novel_ratio, y = sample_group)) +
   scale_y_discrete(limits = levels(novel_ratio$sample_group)) +
   coord_cartesian(clip = "off") +
   labs(
-    x = "Proportion of Novel Viruses",
+    x = "Abundance share (TPM)",
     y = NULL,
-    title = "novel"
+    title = "Unreferenced clusters"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -938,9 +1013,12 @@ message("📊 Figure 2g: Predicted Host Bacteria (Phylum Level)")
 # Extract host prediction data from metadata
 host_genome_edges <- metadata(tse)$host_genome_edges
 
-# Filter high-confidence predictions (>= 80)
+# Filter high-confidence predictions (>= 80) to the >=5 kb primary catalogue
 host_filtered <- host_genome_edges %>%
-  filter(Confidence.score >= 80) %>%
+  filter(
+    Confidence.score >= 80,
+    vOTU_id %in% rownames(tse)
+  ) %>%
   mutate(
     Phylum = stringr::str_extract(Host.taxonomy, "(?<=p__)[^;]+"),
     Phylum = if_else(is.na(Phylum), "Unclassified", Phylum)
@@ -951,7 +1029,7 @@ cat("High-confidence host predictions:", nrow(host_filtered), "rows\n")
 
 </details>
 
-    High-confidence host predictions: 4179 rows
+    High-confidence host predictions: 1925 rows
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -962,7 +1040,7 @@ cat("Unique vOTUs:", dplyr::n_distinct(host_filtered$vOTU_id), "\n")
 
 </details>
 
-    Unique vOTUs: 720 
+    Unique vOTUs: 289
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -973,7 +1051,7 @@ cat("Unique phyla:", dplyr::n_distinct(host_filtered$Phylum), "\n")
 
 </details>
 
-    Unique phyla: 27 
+    Unique phyla: 18
 
 <details class="code-fold">
 <summary>Code</summary>
@@ -1006,8 +1084,8 @@ host_abundance <- tpm_long %>%
 </details>
 
     Warning in dplyr::inner_join(., host_weighted, by = "vOTU_id"): Detected an unexpected many-to-many relationship between `x` and `y`.
-    ℹ Row 355 of `x` matches multiple rows in `y`.
-    ℹ Row 768 of `y` matches multiple rows in `x`.
+    ℹ Row 153 of `x` matches multiple rows in `y`.
+    ℹ Row 315 of `y` matches multiple rows in `x`.
     ℹ If a many-to-many relationship is expected, set `relationship =
       "many-to-many"` to silence this warning.
 
@@ -1078,13 +1156,13 @@ p_fig2g <- ggplot(plot_data, aes(x = rel_abundance, y = Phylum)) +
     guide = guide_legend(order = 2, override.aes = list(color = "grey50"))
   ) +
   scale_x_continuous(
-    breaks = seq(0, 0.30, 0.05),
-    labels = c("0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30"),
+    breaks = seq(0, 0.45, 0.05),
+    labels = c("0", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30", "0.35", "0.40", "0.45"),
     expand = c(0, 0),
-    limits = c(-0.02, 0.30)
+    limits = c(-0.02, 0.45)
   ) +
   labs(
-    x = "Relative abundance of predicted bacterial hosts",
+    x = "Viral TPM share by predicted host phylum",
     y = NULL
   ) +
   theme_fig2() +

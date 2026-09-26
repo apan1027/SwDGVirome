@@ -1,0 +1,10 @@
+protein_id,tool,database,identifier,assignment,category_or_flag,statistics,supports
+TARATASF_NODE_16_18,VIBRANT,KEGG KOfam + Pfam,K21140,mec; [CysO sulfur-carrier protein]-S-L-cysteine hydrolase [EC:3.13.1.6],Pfam PF00877.19 NlpC/P60 family,no bit score or E-value stored in amg_vibrant,"metabolic assignment (mec, CysO-cysteine hydrolase)"
+TARATASF_NODE_16_18,DRAM-v,KEGG,K26975,Enterobacteria phage tail tip assembly protein K,DRAM-v rank C; aux score 1; flags 'VP',-,structural assignment (phage tail tip assembly protein K)
+TARATASF_NODE_16_18,DRAM-v,RefSeq viral,YP_009909783.1,YP_009909783.1 C40 family peptidase [Enterobacteria phage O276],reciprocal best hit,"identity=1.0, bit=547.0, E=8.995999999999999e-177, RBH=1",structural assignment (C40 family peptidase of a lambdoid phage)
+TARATASF_NODE_16_18,DRAM-v,VOGdb,VOG29244,sp|O64333|TIPK_BPN15 Tail tip assembly protein K; XhXs,VOG categories Xs;Xh (Xh virus hallmark; Xs virus structure),-,structural assignment (tail tip assembly protein K)
+TARATASF_NODE_16_18,PHROG (MMseqs2 profile),PHROG,phrog_30,minor tail protein,tail,"E=3.476e-221, pident=100.0, qcov=0.903, tcov=1.0, bits=671, qlen=247, tlen=144",structural assignment (tail)
+TARATASF_NODE_16_18,PHROG (MMseqs2 profile),PHROG,phrog_2635,tail protein,tail,"E=1.174e-87, pident=73.3, qcov=0.777, tcov=0.939, bits=286, qlen=247, tlen=82",structural assignment (tail)
+TARATASF_NODE_16_18,PHROG (MMseqs2 profile),PHROG,phrog_2552,(cluster without annotation),unknown function,"E=1.676e-74, pident=57.8, qcov=0.895, tcov=0.711, bits=248, qlen=247, tlen=142",uninformative
+TARATASF_NODE_16_18,PHROG (MMseqs2 profile),PHROG,phrog_5556,tail protein,tail,"E=1.939e-31, pident=36.5, qcov=0.806, tcov=0.707, bits=123, qlen=247, tlen=140",structural assignment (tail)
+TARATASF_NODE_16_18,eggNOG-mapper,eggNOG orthologous groups,"COG0791@1|root,COG1310@1|root,COG0791@2|Bacteria,COG1310@2|Bacteria,1N05J@1224|Proteobacteria,1RPP6@1236|Gammaproteobacteria",NLP P60 protein,"COG category M; PFAMs NLPC_P60,Prok-JAB","seed ortholog 155864.EDL933_0884, E=8.79e-191, score=528.0",domain-level assignment (NlpC/P60 + Prok-JAB); shared by both interpretations

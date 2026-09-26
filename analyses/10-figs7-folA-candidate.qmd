@@ -1,0 +1,351 @@
+---
+title: "10-figs7-folA-candidate"
+date: today
+params:
+  name: "10-figs7-folA-candidate"
+---
+
+**Updated: `r format(Sys.time(), '%Y-%m-%d %H:%M:%S', tz = 'CET')` CET.**
+
+```{r}
+#| label: params
+#| eval: !expr interactive()
+#| include: false
+params = list(name = "10-figs7-folA-candidate")
+```
+
+```{r}
+#| label: setup
+#| message: false
+#| include: false
+#| warning: false
+wd <- "analyses"
+if (basename(getwd()) != wd) {
+  setwd(here::here(wd))
+}
+here::i_am(paste0(params$name, ".qmd"), uuid = "f71c0880-fe0b-4373-9cf3-a35ed8f87ae0")
+projthis::proj_create_dir_target(params$name, clean = FALSE)
+path_target <- projthis::proj_path_target(params$name)
+path_source <- projthis::proj_path_source(params$name)
+path_raw <- path_source("00-raw")
+path_resource <- here::here(path_raw, "d00-resource")
+path_data <- here::here(path_raw, paste0("d", params$name))
+dir.create(path_raw, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_data, recursive = TRUE, showWarnings = FALSE)
+dir.create(path_resource, recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r}
+#| label: packages
+#| message: false
+#| warning: false
+suppressPackageStartupMessages({
+  library(here)
+  library(conflicted)
+  library(tidyverse)
+  library(data.table)
+  devtools::load_all()
+})
+```
+
+## Tasks
+
+### Task 1: Read the archived Figure S7 inputs
+
+Panel a is redrawn from the per-ORF coordinate/annotation table.
+Panel b is assembled from the archived PyMOL structural overlay and TM-align
+results. This QMD does not rerun structure prediction or structural alignment.
+No completed panel TIFF or PNG is used as input.
+
+```{r}
+#| label: data-import
+#| cache: false
+#| message: false
+#| warning: false
+
+# Namespace calls below avoid conflicts with the packages already loaded.
+needed <- c("png", "ragg")
+missing <- needed[!vapply(needed, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing)) {
+  stop("Please install these R packages first: ", paste(missing, collapse = ", "))
+}
+
+# Historical evidence archive, not a new upstream step in the numbered workflow.
+evidence_dir <- here::here("data", "16-amg-targeted-validation")
+orf_file <- file.path(evidence_dir, "tables", "genomic_context_orfs.csv")
+score_file <- file.path(evidence_dir, "tables", "superposition_verification.csv")
+if (!all(file.exists(c(orf_file, score_file)))) {
+  stop("Missing S7 input tables in: ", evidence_dir)
+}
+
+orf_all <- utils::read.csv(orf_file, stringsAsFactors = FALSE, check.names = FALSE)
+orfs <- orf_all[orf_all$vOTU_id == "vOTU0027" &
+                 orf_all$contig_id == "FCH3CGLCCXYL4FAA_NODE_14", , drop = FALSE]
+orfs <- orfs[order(orfs$start_position), , drop = FALSE]
+
+scores <- utils::read.csv(score_file, stringsAsFactors = FALSE, check.names = FALSE)
+metrics <- scores[scores$candidate == "FCH3CGLCCXYL4FAA_NODE_14_9_esmfold" &
+                    scores$reference == "1RX2", , drop = FALSE]
+
+stopifnot(
+  nrow(orfs) == 41L,
+  all(orfs$contig_length_bp == 40330L),
+  identical(as.integer(orfs$gene_position), 1:41),
+  all(orfs$start_position >= 1 & orfs$end_position <= 40330),
+  all(orfs$start_position < orfs$end_position),
+  all(orfs$strand %in% c("+", "-")),
+  nrow(metrics) == 1L
+)
+stopifnot(
+  orfs$start_position[orfs$gene_position == 9] == 7392,
+  orfs$end_position[orfs$gene_position == 9] == 7904,
+  abs(metrics$tm_score_norm_reference - 0.82818) < 1e-6,
+  abs(metrics$tm_score_norm_query - 0.77914) < 1e-6,
+  abs(metrics$rmsd_reported_by_tmalign_A - 2.10) < 1e-6,
+  metrics$aligned_length == 149,
+  metrics$candidate_n_residues == 170,
+  metrics$reference_n_residues == 159,
+  tolower(metrics$pymol_align_super_cealign_used) == "false"
+)
+
+structure_file <- file.path(evidence_dir, metrics$render_png)
+if (!file.exists(structure_file)) stop("Missing structural overlay: ", structure_file)
+structure_image <- png::readPNG(structure_file)
+
+# Fixed physical panel sizes; panel letters can be added in Inkscape.
+panel_width <- 4.70
+panel_height <- 3.35
+```
+
+### Task 2: Define the two panel drawing functions
+
+```{r}
+#| label: s7-drawing-functions
+#| cache: false
+
+draw_s7a <- function(orfs) {
+  colours <- c(
+    viral_structural = "#2C7FB8", viral_replication = "#7B3294",
+    metabolic_candidate = "#E66101", hypothetical = "#D9D9D9"
+  )
+  stopifnot(all(orfs$evidence_class %in% names(colours)))
+  grid::pushViewport(grid::viewport(gp = grid::gpar(fontfamily = "Times New Roman")))
+  on.exit(grid::popViewport())
+  grid::grid.text("vOTU0027 genomic context", y = .985, just = "top",
+                  gp = grid::gpar(fontsize = 9))
+  grid::grid.text("40.3 kb; CheckV low quality", y = .925, just = "top",
+                  gp = grid::gpar(fontsize = 7.5))
+
+  # Sparse labels match the current figure; all 41 ORFs are drawn.
+  labels <- c("2" = "helicase", "20" = "helicase", "21" = "primase",
+              "25" = "DNA pol", "40" = "minor tail")
+  contig_length <- unique(orfs$contig_length_bp)
+  span <- ceiling(contig_length / 3)
+  track_height <- (.845 - .265) / (3 + 2 * .95)
+  for (track in 0:2) {
+    left <- track * span
+    right <- min((track + 1) * span, contig_length)
+    bottom <- .845 - track_height - track * track_height * 1.95
+    grid::pushViewport(grid::viewport(
+      x = .062, y = bottom, width = .926, height = track_height,
+      just = c("left", "bottom"), xscale = c(left - .012 * span,
+      left + 1.012 * span), yscale = c(-2.30, 2.55), clip = "off"
+    ))
+    grid::grid.lines(x = grid::unit(c(left, right), "native"),
+                     y = grid::unit(c(0, 0), "native"),
+                     gp = grid::gpar(col = "#4D4D4D", lwd = .7))
+    rows <- which(orfs$end_position >= left & orfs$start_position <= right)
+
+    # Clip full-coordinate arrows at row breaks; do not add false arrowheads.
+    grid::pushViewport(grid::viewport(
+      xscale = c(left - .012 * span, left + 1.012 * span),
+      yscale = c(-2.30, 2.55), clip = "on"
+    ))
+    for (j in rows) {
+      g <- orfs[j, ]
+      start <- g$start_position
+      end <- g$end_position
+      head <- min((end - start) * .42, span * .0075)
+      if (g$strand == "+") {
+        x <- c(start, end - head, end - head, end, end - head,
+               end - head, start)
+      } else {
+        x <- c(end, start + head, start + head, start, start + head,
+               start + head, end)
+      }
+      grid::grid.polygon(
+        x = grid::unit(x, "native"),
+        y = grid::unit(c(-.31, -.31, -.51, 0, .51, .31, .31), "native"),
+        gp = grid::gpar(fill = colours[g$evidence_class],
+                        col = if (g$gene_position == 9) "black" else "#5A5A5A",
+                        lwd = if (g$gene_position == 9) 1.4 else .45)
+      )
+    }
+    grid::popViewport()
+
+    for (j in rows) {
+      g <- orfs[j, ]
+      id <- as.character(g$gene_position)
+      mid <- (g$start_position + g$end_position) / 2
+      if (!(id %in% c(names(labels), "9")) || mid < left || mid > right) next
+      grid::grid.lines(x = grid::unit(c(mid, mid), "native"),
+                        y = grid::unit(c(.55, 1.04), "native"),
+                        gp = grid::gpar(col = "#777777", lwd = .5))
+      if (id == "9") {
+        grid::grid.text(expression(paste("(annotated ", italic(folA), ")")),
+          x = grid::unit(mid, "native"), y = grid::unit(1.12, "native"),
+          just = "bottom", gp = grid::gpar(fontsize = 7.5))
+        grid::grid.text("DHFR", x = grid::unit(mid, "native"),
+          y = grid::unit(1.12, "native") + grid::unit(8, "pt"),
+          just = "bottom", gp = grid::gpar(fontsize = 7.5, fontface = "bold"))
+      } else {
+        grid::grid.text(labels[id], x = grid::unit(mid, "native"),
+          y = grid::unit(1.12, "native"), just = "bottom",
+          gp = grid::gpar(fontsize = 7))
+      }
+      grid::grid.text(id, x = grid::unit(mid, "native"),
+                      y = grid::unit(-.63, "native"), just = "top",
+                      gp = grid::gpar(fontsize = 7))
+    }
+
+    ticks <- seq(0, contig_length, by = 5000)
+    ticks <- ticks[ticks >= left & ticks <= right]
+    grid::grid.segments(
+      x0 = grid::unit(ticks, "native"), x1 = grid::unit(ticks, "native"),
+      y0 = grid::unit(-2.30, "native"), y1 = grid::unit(-2.30, "native") -
+        grid::unit(2.2, "pt"), gp = grid::gpar(lwd = .6)
+    )
+    grid::grid.text(ticks / 1000, x = grid::unit(ticks, "native"),
+                    y = grid::unit(-2.30, "native") - grid::unit(3.4, "pt"),
+                    just = "top", gp = grid::gpar(fontsize = 7))
+    for (cap in c(0, contig_length)) {
+      if (cap < left || cap > right) next
+      grid::grid.lines(x = grid::unit(c(cap, cap), "native"),
+                       y = grid::unit(c(-.55, .55), "native"),
+                       gp = grid::gpar(lwd = 1.2))
+      grid::grid.text(if (cap == 0) "contig start" else "contig end",
+        x = grid::unit(cap, "native"), y = grid::unit(-1.42, "native"),
+        just = c(if (cap == 0) "left" else "right", "top"),
+        gp = grid::gpar(fontsize = 7))
+    }
+    grid::popViewport()
+  }
+  grid::grid.text("position on representative contig (kb)", x = .525, y = .19,
+                  gp = grid::gpar(fontsize = 8))
+  legend_item <- function(x, y, colour, label) {
+    grid::grid.rect(x = x, y = y, width = grid::unit(7, "pt"),
+                    height = grid::unit(5, "pt"), just = "left",
+                    gp = grid::gpar(fill = colour, col = "#5A5A5A", lwd = .5))
+    grid::grid.text(label, x = grid::unit(x, "npc") + grid::unit(9, "pt"),
+                    y = y, just = "left", gp = grid::gpar(fontsize = 7.5))
+  }
+  legend_item(.16, .085, colours[1], "viral structural")
+  legend_item(.16, .040, colours[2], "viral replication")
+  legend_item(.385, .085, colours[3], "automated metabolic annotation")
+  legend_item(.785, .085, colours[4], "hypothetical")
+}
+
+draw_s7b <- function(structure_image, metrics) {
+  grid::pushViewport(grid::viewport(gp = grid::gpar(fontfamily = "Times New Roman")))
+  on.exit(grid::popViewport())
+  grid::grid.text(
+    expression(paste("vOTU0027 ", italic(folA),
+                     ": DHFR-family assignment supported")),
+    y = .985, just = "top", gp = grid::gpar(fontsize = 9)
+  )
+  grid::grid.text(sprintf(
+    "TM-score = %.3f (reference-normalized); RMSD = %.2f Å",
+    metrics$tm_score_norm_reference, metrics$rmsd_reported_by_tmalign_A
+  ), y = .925, just = "top", gp = grid::gpar(fontsize = 8))
+
+  # Keep the structural overlay's aspect ratio and original pixels.
+  grid::pushViewport(grid::viewport(x = .5, y = .495, width = .96, height = .70))
+  available_w <- grid::convertWidth(grid::unit(1, "npc"), "in", valueOnly = TRUE)
+  available_h <- grid::convertHeight(grid::unit(1, "npc"), "in", valueOnly = TRUE)
+  image_ratio <- dim(structure_image)[2] / dim(structure_image)[1]
+  image_h <- min(available_h, available_w / image_ratio)
+  grid::grid.raster(structure_image, width = grid::unit(image_h * image_ratio, "in"),
+                    height = grid::unit(image_h, "in"), interpolate = TRUE)
+  grid::popViewport()
+  legend_item <- function(x, y, colour, label) {
+    grid::grid.rect(x = x, y = y, width = grid::unit(7, "pt"),
+                    height = grid::unit(5, "pt"), just = "left",
+                    gp = grid::gpar(fill = colour, col = "black", lwd = .5))
+    grid::grid.text(label, x = grid::unit(x, "npc") + grid::unit(9, "pt"),
+                    y = y, just = "left", gp = grid::gpar(fontsize = 7.5))
+  }
+  legend_item(.23, .078, "#E66101", "candidate, superposed")
+  legend_item(.23, .034, "#F9CFA6", "candidate, not superposed")
+  legend_item(.57, .078, "#2C7FB8", "reference (PDB 1RX2)")
+}
+
+```
+
+### Task 3: Export the two panels
+
+All final TIFF and preview exports are kept together in this chunk.
+
+```{r}
+#| label: s7-export-panels
+#| cache: false
+#| message: false
+#| warning: false
+
+tiff_dir <- path_target("tiff_panels")
+preview_dir <- path_target("preview_png")
+dir.create(tiff_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(preview_dir, recursive = TRUE, showWarnings = FALSE)
+
+save_panel <- function(draw_function, stem) {
+  write_one <- function(filename, dpi, is_tiff) {
+    if (is_tiff) {
+      ragg::agg_tiff(filename, width = panel_width, height = panel_height,
+                     units = "in", res = dpi, background = "white",
+                     compression = "lzw", bitsize = 8)
+    } else {
+      ragg::agg_png(filename, width = panel_width, height = panel_height,
+                    units = "in", res = dpi, background = "white")
+    }
+    on.exit(grDevices::dev.off(), add = TRUE)
+    grid::grid.newpage()
+    draw_function()
+  }
+  write_one(file.path(tiff_dir, paste0(stem, ".tiff")), 600, TRUE)
+  write_one(file.path(preview_dir, paste0(stem, ".png")), 200, FALSE)
+}
+
+save_panel(function() draw_s7a(orfs), "FigS7a_vOTU0027_genomic_context")
+save_panel(function() draw_s7b(structure_image, metrics), "FigS7b_folA_structure")
+
+# Small audit outputs: the exact records and inputs used for these panels.
+utils::write.csv(orfs, path_target("FigS7a_ORF_coordinates_used.csv"), row.names = FALSE)
+utils::write.csv(metrics, path_target("FigS7b_structure_metrics_used.csv"), row.names = FALSE)
+input_files <- c(orf_file, score_file, structure_file)
+utils::write.csv(
+  data.frame(input = input_files, md5 = unname(tools::md5sum(input_files))),
+  path_target("FigS7_input_manifest.csv"), row.names = FALSE
+)
+writeLines(capture.output(sessionInfo()), path_target("FigS7_sessionInfo.txt"))
+```
+
+### Preview
+
+```{r}
+#| label: s7-preview
+#| echo: false
+#| out-width: "100%"
+knitr::include_graphics(c(
+  file.path(preview_dir, "FigS7a_vOTU0027_genomic_context.png"),
+  file.path(preview_dir, "FigS7b_folA_structure.png")
+))
+```
+
+## Files written
+
+These files have been written to the target directory, `r paste0("data/", params$name)`:
+
+```{r}
+#| label: list-files-target
+projthis::proj_dir_info(path_target(), tz = "CET") %>% knitr::kable()
+```
+

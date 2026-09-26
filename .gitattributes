@@ -1,0 +1,2 @@
+# Preserve archived evidence bytes so source_manifest.csv checksums survive checkout.
+analyses/data/00-raw/d04-amg-curation/*.csv -text whitespace=cr-at-eol

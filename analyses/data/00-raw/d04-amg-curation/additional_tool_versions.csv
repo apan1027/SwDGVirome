@@ -1,0 +1,10 @@
+tool,version_string,role_in_this_audit,access_utc
+HMMER,HMMER 3.4 (Aug 2023),"Pfam-A domain scans (hmmscan, hmmsearch, hmmfetch)",2026-09-08T10:41:35+00:00
+MAFFT,v7.526 (2024/Apr/26),multiple sequence alignment,2026-09-08T10:41:35+00:00
+TM-align,* TM-align (Version 20240303): protein and RNA structure alignment   *,structural superposition,2026-09-08T10:41:35+00:00
+IQ-TREE,IQ-TREE version 3.1.3 for MacOS ARM 64-bit built Jul 26 2026,present in env; NOT re-run in this audit,2026-09-08T10:41:35+00:00
+trimal,trimAl v1.5.rev1 build[2025-11-25],present in env; NOT re-run in this audit,2026-09-08T10:41:35+00:00
+PyMOL,3.1.0,present in env; no figures made,2026-09-08T10:41:35+00:00
+Python,3.12.14,analysis scripting,2026-09-08T10:41:35+00:00
+Biopython,1.88,FASTA and newick parsing,2026-09-08T10:41:35+00:00
+SQLite,3.53.4,annotation database queries,2026-09-08T10:41:35+00:00

@@ -1,0 +1,7 @@
+target_protein,target_len,pfam_name,pfam_accession,model_len,full_evalue,full_score,full_bias,domain_index,n_domains,domain_cevalue,domain_ievalue,domain_score,domain_bias,hmm_from,hmm_to,ali_from,ali_to,env_from,env_to,acc_posterior,model_coverage,target_coverage
+Ec_CysH_PAPS_reductase|P17854,244,PAPS_reduct,PF01507.26,175,1.4e-62,199.5,0.0,1,1,8.3e-63,1.7e-62,199.2,0.0,2,174,48,219,47,220,0.99,0.989,0.705
+Ec_FolA_DHFR|P0ABQ4,159,DHFR_1,PF00186.25,159,5.4e-64,203.4,0.0,1,1,3e-64,6e-64,203.2,0.0,1,159,1,158,1,158,0.99,1.0,0.994
+FCH3CGLCCXYL4FAA_NODE_14_9,170,DHFR_1,PF00186.25,159,3.9e-27,83.5,0.0,1,1,1e-26,2.1e-26,81.2,0.0,3,126,2,142,1,167,0.80,0.78,0.829
+T4_frd_DHFR|P04382,193,DHFR_1,PF00186.25,159,3.7e-23,70.6,0.0,1,1,1.2e-21,2.5e-21,64.7,0.0,14,123,22,155,17,187,0.78,0.692,0.694
+TARATASF_NODE_16_52,290,PAPS_reduct,PF01507.26,175,1.7e-12,36.4,0.0,1,1,1.3e-11,2.7e-11,32.5,0.0,2,114,3,145,2,162,0.69,0.646,0.493
+lambda_ORF290_nin_region|P03766,290,PAPS_reduct,PF01507.26,175,1.7e-12,36.4,0.0,1,1,1.3e-11,2.7e-11,32.5,0.0,2,114,3,145,2,162,0.69,0.646,0.493

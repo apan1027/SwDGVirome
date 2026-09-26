@@ -1,0 +1,12 @@
+resource,version_or_release,endpoint_or_path,used_for,access_utc
+Pfam-A (full library),Pfam release       : 38.2 | Pfam-A families    : 30134 | Date               : 2026-01 | Based on UniProtKB : 2025_03,ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz,30134 families; hmmscan --cut_ga and permissive -E 10,2026-09-05T06:15:15+00:00
+Pfam individual models,"PF01507, PF00186, PF11922, PF00877, PF14464, PF01381, PF13091",www.ebi.ac.uk/interpro/wwwapi/entry/pfam/<ACC>/?annotation=hmm,focal-family HMMs,2026-09-05T06:15:15+00:00
+UniProtKB/Swiss-Prot,release as served by rest.uniprot.org on the access date,rest.uniprot.org/uniprotkb/search,"reviewed reference sets, active-site features, evidence codes",2026-09-05T06:15:15+00:00
+NCBI Protein / Nuccore,as served by E-utilities on the access date,eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi,"phage homologues, KY363465 genome, mec proxy",2026-09-05T06:15:15+00:00
+AlphaFold DB,as served by the API on the access date,alphafold.ebi.ac.uk/api/prediction/<ACC>,"reference models AF-P17854, AF-P0ABQ4",2026-09-05T06:15:15+00:00
+RCSB PDB,as served on the access date,files.rcsb.org/download/<ID>.pdb,"1SUR, 2O8V, 1RX2, 1JUV",2026-09-05T06:15:15+00:00
+ESMFold API,ESMFold v1 public endpoint,api.esmatlas.com/foldSequence/v1/pdb/,"query structure prediction (pLDDT reported on a 0-1 scale, rescaled to 0-100)",2026-09-05T06:15:15+00:00
+p0057v2.sqlite (local),"project annotation database, opened read-only",analyses/data/00-raw/d00-resource/p0057v2.sqlite,"anno_prot_dramv, anno_prot_eggnog, anno_prot_phrog, amg_vibrant, amg_dramv, contig_annotation",2026-09-05T06:15:15+00:00
+tse_primary_962.rds (local),"TreeSummarizedExperiment, opened read-only",analyses/data/01-tse-construction/tse_primary_962.rds,catalogue verification: 962 x 4,2026-09-05T06:15:15+00:00
+amg_v6_verified (local),"frozen source data, opened read-only",analyses/revision_5kb_962_2026-09-02/source_data/amg_v6_verified/,"amg_candidate_orfs_all.csv, amg_evidence_tiers.csv, PROVENANCE.md",2026-09-05T06:15:15+00:00
+InterProScan 5 REST,"NOT USED - service requires a contact e-mail address, which is not configured in this environment; substituted by the complete local Pfam-A scan",www.ebi.ac.uk/Tools/services/rest/iprscan5,analysis not performed,2026-09-05T06:15:15+00:00

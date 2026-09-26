@@ -30,8 +30,7 @@
 site_libs/
 
 # --- Data Management (projthis workflow) ---
-# Raw data and processed data should not be tracked
-/analyses/data/
+# Most local data and generated outputs are ignored; selected files are listed below.
 /analyses/output/
 /analyses/*.sqlite
 /analyses/*.sqlite-journal
@@ -59,3 +58,53 @@ Thumbs.db
 .pdm-python
 .python-version
 
+# Track analysis .md reports and explicitly selected preview PNGs for GitHub.
+# Other rendered assets and final TIFF panels remain ignored by the rules above.
+
+# Selected reproducibility inputs, preview images and Table S3 source tables.
+/analyses/data/*
+!/analyses/data/.gitkeep
+!/analyses/data/00-raw/
+/analyses/data/00-raw/*
+!/analyses/data/00-raw/d00-resource/
+/analyses/data/00-raw/d00-resource/*
+!/analyses/data/00-raw/d00-resource/imgvr_source.tsv
+!/analyses/data/00-raw/d00-resource/p0057v2.sqlite
+!/analyses/data/00-raw/d04-amg-curation/
+/analyses/data/00-raw/d04-amg-curation/*
+!/analyses/data/00-raw/d04-amg-curation/*.csv
+!/analyses/data/00-raw/d04-amg-curation/README.md
+!/analyses/data/00-raw/d11-figs8-public-reference/
+/analyses/data/00-raw/d11-figs8-public-reference/*
+!/analyses/data/00-raw/d11-figs8-public-reference/public_reference_alignments_primary962.csv
+!/analyses/data/00-raw/d11-figs8-public-reference/published_reference_coverage.csv
+!/analyses/data/06-figs2-lifestyle/
+/analyses/data/06-figs2-lifestyle/*
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/
+/analyses/data/06-figs2-lifestyle/quality_sensitivity/*
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_comparison.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_source_vOTU_TPM.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_taxonomic_coverage.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3_vOTU_quality_taxonomy.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3a_quality_counts.csv
+!/analyses/data/06-figs2-lifestyle/quality_sensitivity/Table_S3b_quality_sample_fractions.csv
+!/analyses/data/10-figs7-folA-candidate/
+/analyses/data/10-figs7-folA-candidate/*
+!/analyses/data/10-figs7-folA-candidate/preview_png/
+/analyses/data/10-figs7-folA-candidate/preview_png/*
+!/analyses/data/10-figs7-folA-candidate/preview_png/FigS7a_vOTU0027_genomic_context.png
+!/analyses/data/10-figs7-folA-candidate/preview_png/FigS7b_folA_structure.png
+!/analyses/data/11-figs8-public-reference/
+/analyses/data/11-figs8-public-reference/*
+!/analyses/data/11-figs8-public-reference/preview_png/
+/analyses/data/11-figs8-public-reference/preview_png/*
+!/analyses/data/11-figs8-public-reference/preview_png/FigS8_public_reference_coverage_compact.png
+!/analyses/data/16-amg-targeted-validation/
+/analyses/data/16-amg-targeted-validation/*
+!/analyses/data/16-amg-targeted-validation/structures/
+/analyses/data/16-amg-targeted-validation/structures/*
+!/analyses/data/16-amg-targeted-validation/structures/render_d_FCH3CGLCCXYL4FAA_NODE_14_9_esmfold_on_1RX2.png
+!/analyses/data/16-amg-targeted-validation/tables/
+/analyses/data/16-amg-targeted-validation/tables/*
+!/analyses/data/16-amg-targeted-validation/tables/genomic_context_orfs.csv
+!/analyses/data/16-amg-targeted-validation/tables/superposition_verification.csv

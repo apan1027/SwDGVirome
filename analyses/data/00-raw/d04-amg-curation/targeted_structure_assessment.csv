@@ -1,0 +1,5 @@
+target,kind,method,status,n_residues,plddt_scale_reported,mean_plddt,median_plddt,min_plddt,max_plddt,frac_plddt_gt70,frac_plddt_gt90,source,access_utc
+TARATASF_NODE_16_52,query,ESMFold v1 API,model obtained,290,0-1 (rescaled to 0-100),76.37,82.0,32.0,98.0,0.721,0.248,api.esmatlas.com/foldSequence/v1/pdb/,2026-09-04T22:14:34+00:00
+FCH3CGLCCXYL4FAA_NODE_14_9,query,ESMFold v1 API,model obtained,170,0-1 (rescaled to 0-100),81.97,89.0,37.0,96.0,0.859,0.371,api.esmatlas.com/foldSequence/v1/pdb/,2026-09-04T22:14:34+00:00
+P17854,reference,AlphaFold DB,model obtained,244,0-100,93.27,97.38,48.12,98.88,0.951,0.828,alphafold.ebi.ac.uk,2026-09-04T22:14:34+00:00
+P0ABQ4,reference,AlphaFold DB,model obtained,159,0-100,96.46,98.19,75.81,98.94,1.0,0.918,alphafold.ebi.ac.uk,2026-09-04T22:14:34+00:00
